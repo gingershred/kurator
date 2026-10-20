@@ -135,3 +135,9 @@ button.icon.active { color: var(--accent); border-color: var(--accent); }
 .watch-meta h1 { margin-top: 1rem; font-size: 1.35rem; }
 .detail-actions .video-actions { padding: 0; }
 .description p { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+dialog.card { max-width: 28rem; color: var(--text); }
+dialog::backdrop { background: rgba(0, 0, 0, .5); }
+kbd { font-family: ui-monospace, monospace; font-size: .85rem; padding: .05rem .4rem;
+      border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; }
+.watch-meta .row { align-items: center; }
