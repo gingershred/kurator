@@ -78,6 +78,12 @@ Unter **Kanäle** kann jeder Nutzer Kanäle abonnieren:
   docker compose exec web python -m app.cli import-takeout erika /data/subscriptions.csv
   ```
 
+- per **OPML** aus einem RSS-Reader (z. B. FreshRSS, Miniflux) oder einem anderen
+  YouTube-Feed-Tool – über dasselbe Upload-Feld oder `python -m app.cli import-opml`.
+
+Unter **Kanäle → Als OPML exportieren** bekommst du deine Abos als OPML-Datei. Sie enthält
+die Feeds der Upload-Playlist ohne Shorts, ist also auch in anderen Readern Shorts-frei.
+
 Neue Kanäle werden sofort im Hintergrund abgerufen, danach alle `FEED_POLL_MINUTES`
 Minuten (Standard 30). Kanäle werden zwischen Nutzern geteilt und nur einmal abgerufen.
 
@@ -93,6 +99,13 @@ ein Video erst im Feed, wenn seine Länge bekannt ist. Schlüssel anlegen in der
 YouTube Data API beschränken) → als `YOUTUBE_API_KEY` in die `.env`. Das Tageskontingent
 (10.000 Einheiten) teilen sich alle Nutzer; kurator bleibt mit `QUOTA_DAILY_BUDGET`
 darunter. Der Verbrauch steht auf der Admin-Seite **Status**.
+
+**Ersatzabruf bei RSS-Störungen:** YouTubes RSS-Endpunkt liefert seit Ende 2025 zeitweise
+Fehler. Mit Schlüssel lädt kurator betroffene Kanäle dann über die offizielle API nach
+(`playlistItems.list`, 1 Einheit pro Kanal). Dafür werden höchstens 25 % des Tagesbudgets
+genutzt; bei vielen Kanälen werden sie dann seltener nachgeladen, das Budget für alles andere
+bleibt unangetastet. Ohne Schlüssel bleiben gestörte Kanäle bis zur Erholung des Feeds
+stehen; die Seite **Status** zeigt den Zustand des letzten Abrufs.
 
 ### Privatsphäre
 
@@ -224,3 +237,6 @@ docker compose logs -f worker
 - **Zu viele Fehlversuche beim Login** – nach 5 falschen Passwörtern ist die Anmeldung für
   15 Minuten gesperrt (oder bis zum Neustart von `web`).
 - **Passwort vergessen** – `docker compose exec web python -m app.cli reset-password <name>`
+- **Kanäle mit Fehlern / „RSS gestört“** – meist eine vorübergehende Störung bei YouTube.
+  Mit API-Schlüssel springt der Ersatzabruf ein. Kanäle, die laut RSS und API nicht mehr
+  existieren, werden als „existiert nicht mehr“ markiert und nur noch wöchentlich geprüft.

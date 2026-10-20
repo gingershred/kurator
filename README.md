@@ -12,12 +12,15 @@ works with local LLMs or OpenRouter.
 
 kurator is under active development, see the [roadmap](docs/ROADMAP.md).
 
-Working today (phases 0 and 1):
+Working today (phases 0, 1 and 1.1):
 
 - **Subscription feed without Shorts** – channels are read via YouTube's official long-form
   uploads playlist (RSS, no API quota); with a YouTube API key, durations are added and
   anything up to 180 s is filtered out as a fallback.
-- Add channels by ID, URL or @handle, or import your Google Takeout `subscriptions.csv`.
+- Add channels by ID, URL or @handle, or import your Google Takeout `subscriptions.csv` or an
+  OPML file; export your subscriptions as OPML.
+- Robust fetching: when YouTube's RSS endpoint fails, channels are fetched via the official
+  Data API instead (within a fixed share of the daily quota).
 - Feed, "watch later" and "hidden" views; mark as watched, hide, rate; filter by channel and
   length; keyboard shortcuts (`j`/`k`, `w`, `h`, `l`, `?`).
 - Personal filter rules (keywords, regex, channel, min/max duration) – always undoable.
