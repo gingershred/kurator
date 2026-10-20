@@ -1,0 +1,29 @@
+# kurator – web UI plus background worker. All data lives in ./data (owned by UID 1000).
+# Only run kurator in your home network or via VPN, never expose it to the internet.
+
+x-kurator: &kurator
+  image: ghcr.io/gingershred/kurator:latest
+  build: .
+  env_file: .env
+  volumes:
+    - ./data:/data
+  restart: unless-stopped
+
+services:
+  web:
+    <<: *kurator
+    ports:
+      - "8080:8080"
+
+  worker:
+    <<: *kurator
+    command: ["python", "-m", "app.cli", "worker"]
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.cli", "healthcheck", "--worker"]
+      interval: 60s
+      timeout: 10s
+      start_period: 120s
+      retries: 3

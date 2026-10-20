@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ t("admin.status.title") }}{% endblock %}
+{% block content %}
+<h1>{{ t("admin.status.title") }}</h1>
+<section class="card">
+  <dl class="facts">
+    <dt>{{ t("admin.status.version") }}</dt>
+    <dd>{{ status.version }}{% if status.git_sha %} ({{ status.git_sha[:7] }}){% endif %}</dd>
+
+    <dt>{{ t("admin.status.db_revision") }}</dt>
+    <dd>{{ status.db_revision or t("common.none") }} –
+      {% if status.db_up_to_date %}{{ t("admin.status.db_head") }}{% else %}
+      <span class="badge badge-failed">{{ t("admin.status.db_outdated", head=status.head_revision) }}</span>{% endif %}
+    </dd>
+
+    <dt>{{ t("admin.status.db_size") }}</dt>
+    <dd>{{ (status.db_size_bytes / 1048576) | round(1) }} MB</dd>
+
+    <dt>{{ t("admin.status.users") }}</dt><dd>{{ status.user_count }}</dd>
+    <dt>{{ t("admin.status.auth_mode") }}</dt><dd>{{ status.auth_mode }}</dd>
+
+    <dt>{{ t("admin.status.api_key") }}</dt>
+    <dd>{{ t("admin.status.api_key_set") if status.youtube_api_key_set else t("admin.status.api_key_missing") }}</dd>
+
+    <dt>{{ t("admin.status.quota") }}</dt>
+    <dd>{{ t("admin.status.quota_value", used=status.quota_used, budget=status.quota_budget, search=status.quota_search_used) }}</dd>
+
+    <dt>{{ t("admin.status.worker") }}</dt>
+    <dd>
+      {% if status.worker_heartbeat is none %}<span class="badge badge-failed">{{ t("admin.status.worker_unknown") }}</span>
+      {% elif status.worker_alive %}{{ t("admin.status.worker_alive", when=status.worker_heartbeat | dt(tz)) }}
+      {% else %}<span class="badge badge-failed">{{ t("admin.status.worker_dead", when=status.worker_heartbeat | dt(tz)) }}</span>{% endif %}
+    </dd>
+
+    <dt>{{ t("admin.status.queue") }}</dt>
+    <dd>{{ t("admin.status.queue_value", queued=status.queue.queued, running=status.queue.running, failed=status.queue.failed) }}</dd>
+  </dl>
+</section>
+
+<h2>{{ t("admin.status.recent_runs") }}</h2>
+{% if status.recent_runs %}
+<div class="table-wrap card">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("admin.status.run_name") }}</th>
+        <th>{{ t("admin.status.run_started") }}</th>
+        <th>{{ t("admin.status.run_duration") }}</th>
+        <th>{{ t("admin.status.run_status") }}</th>
+        <th>{{ t("admin.status.run_error") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for run in status.recent_runs %}
+      <tr>
+        <td>{{ run.name }}</td>
+        <td>{{ run.started_at | dt(tz) }}</td>
+        <td>{% if run.finished_at %}{{ ((run.finished_at - run.started_at).total_seconds()) | round(1) }} s{% else %}{{ t("common.none") }}{% endif %}</td>
+        <td><span class="badge{% if run.status == 'failed' %} badge-failed{% endif %}">{{ t("run." ~ run.status) }}</span></td>
+        <td>{{ (run.error or "").splitlines()[0] if run.error else "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">{{ t("admin.status.no_runs") }}</p>
+{% endif %}
+{% endblock %}

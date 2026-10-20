@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ t("admin.users.edit_title", username=user.username) }}{% endblock %}
+{% block content %}
+<p><a href="/admin/users">← {{ t("common.back") }}</a></p>
+<h1>{{ t("admin.users.edit_title", username=user.username) }}</h1>
+
+<section class="card">
+  <dl class="facts">
+    <dt>{{ t("admin.users.created") }}</dt><dd>{{ user.created_at | dt(tz) }}</dd>
+    <dt>{{ t("admin.users.last_login") }}</dt><dd>{{ user.last_login_at | dt(tz) }}</dd>
+    <dt>{{ t("admin.users.active") }}</dt><dd>{{ t("common.yes") if user.is_active else t("common.no") }}</dd>
+    <dt>{{ t("admin.users.oidc") }}</dt>
+    <dd>{{ t("admin.users.oidc_linked") if user.oidc_subject else t("admin.users.oidc_not_linked") }}</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>{{ t("admin.users.role") }}</h2>
+  <form method="post" action="/admin/users/{{ user.id }}/role" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <select name="role" aria-label="{{ t('admin.users.role') }}">
+      {% for r in ("user", "admin") %}
+      <option value="{{ r }}" {% if user.role == r %}selected{% endif %}>{{ t("role." ~ r) }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">{{ t("admin.users.save_role") }}</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>{{ t("admin.users.reset_password") }}</h2>
+  <form method="post" action="/admin/users/{{ user.id }}/password" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input name="password" type="password" autocomplete="new-password" minlength="10" required
+           aria-label="{{ t('admin.users.password') }}">
+    <button type="submit">{{ t("admin.users.reset_password") }}</button>
+  </form>
+</section>
+
+<section class="card">
+  <div class="row">
+    <form method="post" action="/admin/users/{{ user.id }}/active" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if user.is_active %}
+      <input type="hidden" name="active" value="false">
+      <button type="submit" class="secondary">{{ t("admin.users.deactivate") }}</button>
+      {% else %}
+      <input type="hidden" name="active" value="true">
+      <button type="submit">{{ t("admin.users.activate") }}</button>
+      {% endif %}
+    </form>
+    {% if user.oidc_subject %}
+    <form method="post" action="/admin/users/{{ user.id }}/unlink-oidc" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="secondary">{{ t("admin.users.unlink_oidc") }}</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card danger-zone">
+  <h2>{{ t("admin.users.delete") }}</h2>
+  <p>{{ t("admin.users.delete_warning") }}</p>
+  <form method="post" action="/admin/users/{{ user.id }}/delete" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ t("admin.users.delete_confirm") }}
+      <input name="confirm_username" autocomplete="off" required>
+    </label>
+    <button type="submit" class="danger">{{ t("admin.users.delete") }}</button>
+  </form>
+</section>
+{% endblock %}
