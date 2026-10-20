@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ t("admin.users.title") }}{% endblock %}
+{% block content %}
+<h1>{{ t("admin.users.title") }}</h1>
+<div class="table-wrap card">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("admin.users.username") }}</th>
+        <th>{{ t("admin.users.role") }}</th>
+        <th>{{ t("admin.users.active") }}</th>
+        <th>{{ t("admin.users.oidc") }}</th>
+        <th>{{ t("admin.users.last_login") }}</th>
+        <th>{{ t("admin.users.actions") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ t("role." ~ u.role) }}</td>
+        <td>{{ t("common.yes") if u.is_active else t("common.no") }}</td>
+        <td>{{ t("admin.users.oidc_linked") if u.oidc_subject else t("common.none") }}</td>
+        <td>{{ u.last_login_at | dt(tz) }}</td>
+        <td><a href="/admin/users/{{ u.id }}">{{ t("admin.users.edit") }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="card">
+  <h2>{{ t("admin.users.new") }}</h2>
+  {% if error %}<p class="flash flash-error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/admin/users" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ t("admin.users.username") }}
+      <input name="username" value="{{ form.username if form else '' }}" required autocomplete="off">
+    </label>
+    <label>{{ t("admin.users.password") }}
+      <input name="password" type="password" autocomplete="new-password">
+    </label>
+    <label>{{ t("admin.users.role") }}
+      <select name="role">
+        {% for r in ("user", "admin") %}
+        <option value="{{ r }}" {% if form and form.role == r %}selected{% endif %}>{{ t("role." ~ r) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">{{ t("admin.users.create") }}</button>
+  </form>
+  <p class="muted">{{ t("admin.users.password_hint") }}</p>
+</section>
+{% endblock %}

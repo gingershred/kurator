@@ -84,3 +84,4 @@ dl.facts dd { margin: 0; }
 .badge { font-size: .8rem; padding: .1rem .45rem; border-radius: 999px;
          border: 1px solid var(--border); }
 .badge-failed { border-color: var(--danger); color: var(--danger); }
+.form-narrow { max-width: 26rem; }
