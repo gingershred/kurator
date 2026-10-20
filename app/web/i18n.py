@@ -150,6 +150,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.cannot_deactivate_self": "Du kannst dich nicht selbst deaktivieren.",
         "error.delete_confirm_mismatch": "Der eingegebene Benutzername stimmt nicht überein.",
         "error.local_login_disabled": "Die Anmeldung mit Passwort ist deaktiviert.",
+        "error.channel_input_invalid": (
+            "Das sieht nicht nach einem Kanal aus. Erlaubt sind Kanal-ID (UC…), @Handle oder "
+            "eine Kanal-URL."
+        ),
+        "error.channel_input_custom_url": (
+            "Alte /c/…-Adressen lassen sich nicht offiziell auflösen. Bitte das @Handle oder "
+            "die Kanal-URL mit /channel/UC… verwenden."
+        ),
+        "error.channel_input_video_url": (
+            "Das ist ein Video-Link. Bitte den Link zum Kanal angeben."
+        ),
     }
 }
 
