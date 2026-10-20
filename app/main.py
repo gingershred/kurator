@@ -25,6 +25,7 @@ from app.web.routes import (
     admin_status,
     admin_users,
     auth,
+    channels,
     health,
     home,
     oidc,
@@ -133,4 +134,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_status.router)
     app.include_router(oidc.router)
     app.include_router(thumbs.router)
+    app.include_router(channels.router)
     return app

@@ -86,3 +86,7 @@ dl.facts dd { margin: 0; }
          border: 1px solid var(--border); }
 .badge-failed { border-color: var(--danger); color: var(--danger); }
 .form-narrow { max-width: 26rem; }
+.grow { flex: 1 1 20rem; }
+.actions { white-space: nowrap; }
+.actions form + form { margin-left: .75rem; }
+.danger-text { color: var(--danger) !important; }

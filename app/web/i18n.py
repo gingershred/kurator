@@ -39,6 +39,40 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Für dieses Single-Sign-on-Konto gibt es keinen kurator-Nutzer. "
             "Bitte wende dich an den Admin."
         ),
+        # Channels
+        "nav.channels": "Kanäle",
+        "channels.title": "Kanäle",
+        "channels.add": "Kanal hinzufügen",
+        "channels.input": "Kanal",
+        "channels.add_button": "Hinzufügen",
+        "channels.no_api_key_hint": (
+            "Ohne YouTube-API-Schlüssel funktionieren nur Kanal-IDs (UC…), Links mit /channel/ "
+            "und der Takeout-Import. @Handles brauchen den Schlüssel."
+        ),
+        "channels.import": "Aus Google Takeout importieren",
+        "channels.import_hint": (
+            "Unter takeout.google.com „YouTube und YouTube Music“ → „Abos“ exportieren und die "
+            "Datei subscriptions.csv hier hochladen."
+        ),
+        "channels.import_button": "Importieren",
+        "channels.imported": (
+            "Import abgeschlossen: {added} neu, {existing} bereits abonniert, "
+            "{invalid} ungültige Zeilen. Die Videos werden im Hintergrund geladen."
+        ),
+        "channels.added": "„{title}“ wurde abonniert. Die Videos werden im Hintergrund geladen.",
+        "channels.removed": "„{title}“ wurde entfernt.",
+        "channels.list": "Deine Abos ({count})",
+        "channels.name": "Kanal",
+        "channels.status": "Status",
+        "channels.status_active": "aktiv",
+        "channels.status_muted": "stummgeschaltet",
+        "channels.last_fetch": "Zuletzt abgerufen",
+        "channels.error": "Fehler",
+        "channels.error_count": "{count}× fehlgeschlagen",
+        "channels.mute": "Stummschalten",
+        "channels.unmute": "Aktivieren",
+        "channels.remove": "Entfernen",
+        "channels.empty": "Du hast noch keine Kanäle abonniert.",
         # Home
         "home.title": "Startseite",
         "home.welcome": "Willkommen, {username}!",
@@ -150,6 +184,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.cannot_deactivate_self": "Du kannst dich nicht selbst deaktivieren.",
         "error.delete_confirm_mismatch": "Der eingegebene Benutzername stimmt nicht überein.",
         "error.local_login_disabled": "Die Anmeldung mit Passwort ist deaktiviert.",
+        "error.channel_needs_api_key": (
+            "@Handles und Nutzernamen lassen sich nur mit YouTube-API-Schlüssel auflösen. "
+            "Bitte die Kanal-ID (UC…) oder den /channel/-Link verwenden."
+        ),
+        "error.channel_not_found": "Diesen Kanal gibt es auf YouTube nicht.",
+        "error.channel_already_subscribed": "Diesen Kanal hast du bereits abonniert.",
+        "error.quota_exhausted": (
+            "Das tägliche YouTube-Kontingent ist aufgebraucht. Bitte morgen erneut versuchen "
+            "oder die Kanal-ID verwenden."
+        ),
+        "error.youtube_api": (
+            "Die YouTube-API hat einen Fehler gemeldet. Bitte später erneut versuchen."
+        ),
+        "error.import_too_large": "Die Datei ist zu groß (höchstens 2 MB).",
+        "error.import_empty": "In der Datei wurden keine Kanäle gefunden.",
         "error.channel_input_invalid": (
             "Das sieht nicht nach einem Kanal aus. Erlaubt sind Kanal-ID (UC…), @Handle oder "
             "eine Kanal-URL."
