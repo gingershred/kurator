@@ -20,6 +20,7 @@ from app.youtube.rss import FEED_URL
 from tests.factories import (
     BASE_TIME,
     add_channel,
+    api_playlist_item,
     api_video,
     channel_id,
     feed_xml,
@@ -285,3 +286,122 @@ async def test_concurrent_duplicate_insert_is_not_a_channel_error(
         result = await ingest.poll_channels(session_factory, client, [channel.id])
     db.refresh(channel)
     assert (result.ok, result.failed) == (1, 0) and channel.error_count == 0
+
+
+# --- RSS fallback via playlistItems.list ----------------------------------------------------
+
+
+def fallback_for(api: YouTubeApi, api_settings: Settings, minutes: int = 72) -> ingest.Fallback:
+    return ingest.Fallback(api, api_settings, timedelta(minutes=minutes))
+
+
+@respx.mock
+async def test_rss_failure_falls_back_to_api(
+    db: Session, session_factory: sessionmaker[Session], api_settings: Settings
+) -> None:
+    channel = add_channel(db, 1)
+    rss = respx.get(FEED_URL).respond(status_code=500)
+    playlist = respx.get(f"{API_BASE}/playlistItems").respond(
+        json={"items": [api_playlist_item(video_id(1), channel_id(1))]}
+    )
+    async with httpx.AsyncClient() as client:
+        api = YouTubeApi(api_settings, session_factory, client)
+        fb = fallback_for(api, api_settings)
+        result = await ingest.poll_channels(session_factory, client, [channel.id], fallback=fb)
+        assert (result.ok, result.failed, result.rss_failed, result.fallback) == (1, 0, 1, 1)
+        assert rss.call_count == 2  # one retry
+        assert playlist.calls[0].request.url.params["playlistId"] == "UULF" + channel_id(1)[2:]
+
+        # Right after a fallback the channel is not due again: RSS error is recorded instead.
+        result = await ingest.poll_channels(session_factory, client, [channel.id], fallback=fb)
+        assert (result.failed, result.fallback) == (1, 0)
+    assert playlist.call_count == 1
+    assert [v.youtube_video_id for v in videos_by_id(db).values()] == [video_id(1)]
+    db.refresh(channel)
+    assert channel.last_fallback_at is not None
+    assert "postponed" in (channel.last_error or "")
+    assert quota.used(db, quota.quota_day(), "playlistItems.list") == 1
+
+
+@respx.mock
+async def test_no_fallback_without_api_key(
+    db: Session, session_factory: sessionmaker[Session], settings: Settings
+) -> None:
+    channel = add_channel(db, 1)
+    respx.get(FEED_URL).respond(status_code=500)
+    playlist = respx.get(f"{API_BASE}/playlistItems").respond(json={"items": []})
+    async with httpx.AsyncClient() as client:
+        api = YouTubeApi(settings, session_factory, client)
+        result = await ingest.poll_channels(
+            session_factory, client, [channel.id], fallback=fallback_for(api, settings)
+        )
+    assert result.failed == 1 and playlist.call_count == 0
+    db.refresh(channel)
+    assert channel.error_count == 1 and channel.last_fallback_at is None
+
+
+@respx.mock
+async def test_fallback_respects_its_budget_share(
+    db: Session, session_factory: sessionmaker[Session], api_settings: Settings
+) -> None:
+    channels = [add_channel(db, n) for n in range(5)]
+    set_global_setting(db, "quota_daily_budget", 12)  # fallback share: 3 units
+    respx.get(FEED_URL).respond(status_code=503)
+    playlist = respx.get(f"{API_BASE}/playlistItems").respond(json={"items": []})
+    async with httpx.AsyncClient() as client:
+        api = YouTubeApi(api_settings, session_factory, client)
+        result = await ingest.poll_channels(
+            session_factory,
+            client,
+            [c.id for c in channels],
+            concurrency=1,
+            fallback=fallback_for(api, api_settings),
+        )
+    assert playlist.call_count == 3
+    assert (result.fallback, result.failed) == (3, 2)
+
+
+@respx.mock
+async def test_full_rss_outage_for_a_day_stays_within_fallback_share(
+    db: Session, session_factory: sessionmaker[Session], api_settings: Settings, alice: User
+) -> None:
+    channels = [add_channel(db, n) for n in range(100)]
+    for channel in channels:
+        subscribe(db, alice.id, channel)
+    respx.get(FEED_URL).respond(status_code=500)
+    respx.get(f"{API_BASE}/playlistItems").respond(json={"items": []})
+
+    for _poll in range(48):  # every 30 minutes
+        await ingest.poll_and_enrich(session_factory, api_settings)
+        # Pretend 30 minutes pass.
+        db.expire_all()
+        for channel in db.scalars(select(Channel).where(Channel.last_fallback_at.is_not(None))):
+            assert channel.last_fallback_at is not None
+            channel.last_fallback_at -= timedelta(minutes=30)
+        db.commit()
+
+    used = quota.used(db, quota.quota_day(), "playlistItems.list")
+    assert 0 < used <= quota.fallback_budget(db, api_settings)  # 2000
+    assert quota.used_today(db) == used  # nothing else was spent
+
+
+@respx.mock
+async def test_many_channels_with_real_suspension_do_not_exhaust_the_pool(
+    db: Session, session_factory: sessionmaker[Session], alice: User
+) -> None:
+    """Regression: sessions must not be held across awaits (pool size is 15)."""
+    import asyncio
+
+    channels = [add_channel(db, n) for n in range(60)]
+
+    async def slow_feed(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.01)  # a real network wait lets all coroutines interleave
+        cid = "UC" + request.url.params["playlist_id"][4:]
+        return httpx.Response(200, content=feed_xml(cid, []))
+
+    respx.get(FEED_URL).mock(side_effect=slow_feed)
+    async with httpx.AsyncClient() as client:
+        result = await asyncio.wait_for(
+            ingest.poll_channels(session_factory, client, [c.id for c in channels]), timeout=20
+        )
+    assert (result.ok, result.failed) == (60, 0)

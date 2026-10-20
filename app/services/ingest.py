@@ -19,7 +19,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.config import Settings
 from app.db import utcnow
 from app.models import Channel, LiveStatus, Subscription, SubscriptionStatus, Video
+from app.youtube import quota
 from app.youtube.api import ApiError, ApiUnavailable, QuotaExhausted, VideoInfo, YouTubeApi
+from app.youtube.ids import uploads_playlist_id
 from app.youtube.rss import ChannelFeed, FeedError, fetch_uploads
 from app.youtube.thumbs import ThumbResult, cache_pending
 
@@ -36,6 +38,20 @@ class PollResult:
     ok: int = 0
     failed: int = 0
     new_videos: int = 0
+    rss_failed: int = 0
+    fallback: int = 0
+
+
+@dataclass(frozen=True)
+class Fallback:
+    """Fetching uploads via playlistItems.list (1 unit) when RSS fails."""
+
+    api: YouTubeApi
+    settings: Settings
+    interval: timedelta
+
+    def due(self, channel: Channel, now: datetime) -> bool:
+        return channel.last_fallback_at is None or channel.last_fallback_at <= now - self.interval
 
 
 @dataclass
@@ -104,28 +120,87 @@ def record_channel_error(db: Session, channel: Channel, error: str, now: datetim
     db.commit()
 
 
+def _record_error(session_factory: sessionmaker[Session], channel_id: int, error: str) -> None:
+    with session_factory() as db:
+        channel = db.get(Channel, channel_id)
+        if channel is not None:
+            record_channel_error(db, channel, error, utcnow())
+
+
+async def _fetch_via_api(
+    session_factory: sessionmaker[Session],
+    channel_id: int,
+    youtube_channel_id: str,
+    fallback: Fallback,
+    rss_error: FeedError,
+) -> ChannelFeed | None:
+    """Try the API fallback; returns None (after recording the error) if not possible."""
+    if not fallback.api.available:
+        _record_error(session_factory, channel_id, str(rss_error))
+        return None
+    with session_factory() as db:
+        channel = db.get(Channel, channel_id)
+        if channel is None:
+            return None
+        now = utcnow()
+        if not fallback.due(channel, now) or not quota.can_spend_fallback(db, fallback.settings):
+            record_channel_error(db, channel, f"{rss_error} (API fallback postponed)", now)
+            return None
+        channel.last_fallback_at = now
+        db.commit()
+    try:
+        entries = await fallback.api.playlist_items(uploads_playlist_id(youtube_channel_id))
+    except (QuotaExhausted, ApiUnavailable, ApiError) as exc:
+        _record_error(session_factory, channel_id, f"{rss_error}; API fallback: {exc}")
+        return None
+    return ChannelFeed(channel_id=youtube_channel_id, channel_title=None, entries=entries)
+
+
 async def poll_channels(
     session_factory: sessionmaker[Session],
     client: httpx.AsyncClient,
     channel_ids: list[int],
     concurrency: int = FETCH_CONCURRENCY,
+    fallback: Fallback | None = None,
 ) -> PollResult:
+    """Fetch many channels concurrently.
+
+    No database connection is held across an ``await``: with many channels the
+    coroutines would otherwise exhaust the connection pool and block the event loop.
+    """
     result = PollResult(channels=len(channel_ids))
     semaphore = asyncio.Semaphore(concurrency)
+
+    async def fetch(channel_id: int, youtube_channel_id: str) -> ChannelFeed | None:
+        try:
+            return await fetch_uploads(client, youtube_channel_id)
+        except FeedError as exc:
+            log.warning("feed of %s failed: %s", youtube_channel_id, exc)
+            result.rss_failed += 1
+            if fallback is None:
+                _record_error(session_factory, channel_id, str(exc))
+                return None
+            feed = await _fetch_via_api(
+                session_factory, channel_id, youtube_channel_id, fallback, exc
+            )
+            result.fallback += int(feed is not None)
+            return feed
 
     async def poll_one(channel_id: int) -> None:
         with session_factory() as db:
             channel = db.get(Channel, channel_id)
             if channel is None:
                 return
-            async with semaphore:
-                try:
-                    feed = await fetch_uploads(client, channel.youtube_channel_id)
-                except FeedError as exc:
-                    log.warning("feed of %s failed: %s", channel.youtube_channel_id, exc)
-                    record_channel_error(db, channel, str(exc), utcnow())
-                    result.failed += 1
-                    return
+            youtube_channel_id = channel.youtube_channel_id
+        async with semaphore:
+            feed = await fetch(channel_id, youtube_channel_id)
+        if feed is None:
+            result.failed += 1
+            return
+        with session_factory() as db:
+            channel = db.get(Channel, channel_id)
+            if channel is None:
+                return
             try:
                 result.new_videos += store_feed(db, channel, feed, utcnow())
                 result.ok += 1
@@ -134,7 +209,7 @@ async def poll_channels(
                 db.rollback()
                 result.ok += 1
             except Exception as exc:
-                log.exception("storing feed of %s failed", channel.youtube_channel_id)
+                log.exception("storing feed of %s failed", youtube_channel_id)
                 db.rollback()
                 record_channel_error(db, channel, f"{type(exc).__name__}: {exc}", utcnow())
                 result.failed += 1
@@ -247,9 +322,13 @@ async def poll_and_enrich(
         with session_factory() as db:
             channel_ids = channels_to_poll(db)
     async with http_client() as client:
-        polled = await poll_channels(session_factory, client, channel_ids)
-        enriched = await enrich_pending(
-            session_factory, YouTubeApi(settings, session_factory, client), settings
-        )
+        api = YouTubeApi(settings, session_factory, client)
+        with session_factory() as db:
+            interval = quota.fallback_interval_minutes(
+                db, settings, len(channels_to_poll(db)), settings.feed_poll_minutes
+            )
+        fallback = Fallback(api, settings, timedelta(minutes=interval))
+        polled = await poll_channels(session_factory, client, channel_ids, fallback=fallback)
+        enriched = await enrich_pending(session_factory, api, settings)
         thumbs = await cache_pending(session_factory, settings, client)
     return polled, enriched, thumbs

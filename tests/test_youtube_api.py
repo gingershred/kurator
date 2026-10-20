@@ -14,10 +14,12 @@ from app.youtube.api import (
     API_BASE,
     ApiError,
     ApiUnavailable,
+    PlaylistNotFound,
     QuotaExhausted,
     YouTubeApi,
     parse_duration,
 )
+from tests.factories import api_playlist_item
 
 KEY = "AIza-test-key"
 
@@ -157,3 +159,41 @@ async def test_channel_by_handle(api: YouTubeApi, db: Session, alice: User) -> N
     respx.get(f"{API_BASE}/channels").respond(json={})
     assert await api.channel_by_handle("missing") is None
     assert quota.used_today(db) == 2
+
+
+@respx.mock
+async def test_playlist_items(api: YouTubeApi, db: Session) -> None:
+    cid = "UC" + "a" * 22
+    route = respx.get(f"{API_BASE}/playlistItems").respond(
+        json={
+            "items": [
+                api_playlist_item("vid00000001", cid),
+                {  # private video: no videoPublishedAt
+                    "snippet": {"title": "Private video", "resourceId": {"videoId": "vid00000002"}},
+                    "contentDetails": {"videoId": "vid00000002"},
+                },
+            ]
+        }
+    )
+    entries = await api.playlist_items("UULF" + "a" * 22)
+    assert route.calls[0].request.url.params["playlistId"] == "UULF" + "a" * 22
+    assert [e.video_id for e in entries] == ["vid00000001"]
+    assert entries[0].channel_id == cid and entries[0].description == "aus der API"
+    assert quota.used(db, quota.quota_day(), "playlistItems.list") == 1
+
+
+@respx.mock
+async def test_playlist_not_found(api: YouTubeApi) -> None:
+    respx.get(f"{API_BASE}/playlistItems").respond(
+        status_code=404, json={"error": {"errors": [{"reason": "playlistNotFound"}]}}
+    )
+    with pytest.raises(PlaylistNotFound):
+        await api.playlist_items("UULF" + "b" * 22)
+
+
+def test_fallback_interval(db: Session, settings: Settings) -> None:
+    assert quota.fallback_budget(db, settings) == 2000
+    assert quota.fallback_interval_minutes(db, settings, 100, 30) == 72
+    assert quota.fallback_interval_minutes(db, settings, 10, 30) == 30
+    set_global_setting(db, "quota_daily_budget", 0)
+    assert quota.fallback_interval_minutes(db, settings, 10, 30) == 1440

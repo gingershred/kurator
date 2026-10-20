@@ -19,6 +19,10 @@ from app.services.settings import get_global_setting
 
 QUOTA_TIMEZONE = ZoneInfo("America/Los_Angeles")
 SEARCH_METHOD = "search.list"
+FALLBACK_METHOD = "playlistItems.list"
+# At most this share of the daily budget may be spent on fetching uploads via the API
+# when RSS fails, so an RSS outage never starves enrichment.
+FALLBACK_SHARE = 0.25
 
 # Documented unit costs of the methods kurator uses.
 METHOD_COSTS = {
@@ -85,3 +89,26 @@ def can_spend(
         search_budget = int(get_global_setting(db, settings, "quota_search_budget"))
         return used(db, day, SEARCH_METHOD) + cost <= search_budget
     return True
+
+
+def fallback_budget(db: Session, settings: Settings) -> int:
+    return int(int(get_global_setting(db, settings, "quota_daily_budget")) * FALLBACK_SHARE)
+
+
+def can_spend_fallback(db: Session, settings: Settings, now: datetime | None = None) -> bool:
+    used_fallback = used(db, quota_day(now), FALLBACK_METHOD)
+    return used_fallback + METHOD_COSTS[FALLBACK_METHOD] <= fallback_budget(db, settings) and (
+        can_spend(db, settings, FALLBACK_METHOD, now=now)
+    )
+
+
+def fallback_interval_minutes(
+    db: Session, settings: Settings, channel_count: int, poll_minutes: int
+) -> int:
+    """How often one channel may be fetched via the API so that, even if RSS fails for all
+    channels all day, the fallback stays within its share of the budget."""
+    budget = fallback_budget(db, settings)
+    if budget <= 0:
+        return 24 * 60
+    needed = -(-24 * 60 * max(channel_count, 1) // budget)  # ceiling division
+    return max(poll_minutes, needed)

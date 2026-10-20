@@ -25,3 +25,7 @@ class Channel(Base):
     error_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
     )
+    # Last time the uploads were fetched via the Data API because RSS failed.
+    last_fallback_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Set when both RSS and the API report the uploads playlist as not found.
+    gone_at: Mapped[datetime | None] = mapped_column(UTCDateTime)

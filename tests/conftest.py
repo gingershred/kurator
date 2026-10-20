@@ -41,6 +41,13 @@ def _fast_password_hashing(monkeypatch: pytest.MonkeyPatch) -> None:
     passwords._dummy_hash.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _no_retry_pause(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.youtube import rss
+
+    monkeypatch.setattr(rss, "RETRY_DELAY", 0)
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     data_dir = tmp_path / "data"

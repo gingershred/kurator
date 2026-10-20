@@ -107,7 +107,7 @@ async def fetch_uploads(
     client: httpx.AsyncClient,
     channel_id: str,
     timeout: float = DEFAULT_TIMEOUT,
-    retry_delay: float = RETRY_DELAY,
+    retry_delay: float | None = None,
 ) -> ChannelFeed:
     """Fetch the long-form uploads (UULF playlist) of a channel.
 
@@ -118,5 +118,5 @@ async def fetch_uploads(
     except FeedError as exc:
         if not exc.transient:
             raise
-    await asyncio.sleep(retry_delay)
+    await asyncio.sleep(RETRY_DELAY if retry_delay is None else retry_delay)
     return await _fetch_once(client, channel_id, timeout)
