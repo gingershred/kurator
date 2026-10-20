@@ -131,6 +131,7 @@ def test_local_login_disabled_in_oidc_mode(settings: Settings, engine: object, a
             "auth_mode": "oidc",
             "oidc_issuer": "https://idp.example",
             "oidc_client_id": "kurator",
+            "oidc_client_secret": settings.secret_key,
         }
     )
     with TestClient(create_app(oidc_settings)) as c:
