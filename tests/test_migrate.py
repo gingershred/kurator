@@ -41,7 +41,7 @@ def test_pending_migration_creates_backup_with_data(
 
     # Pretend the database is at an older revision so an upgrade is pending.
     monkeypatch.setattr(migrate, "current_revision", lambda _engine: "0000")
-    monkeypatch.setattr(migrate.command, "upgrade", lambda _cfg, _rev: None)
+    monkeypatch.setattr("alembic.command.upgrade", lambda _cfg, _rev: None)
 
     result = migrate.run_migrations(settings)
 

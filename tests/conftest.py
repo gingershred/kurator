@@ -6,9 +6,11 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from argon2 import PasswordHasher
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.auth import passwords
 from app.config import Settings
 from app.db import create_db_engine, create_session_factory
 
@@ -20,6 +22,14 @@ TEST_SECRET = "test-secret-key-0123456789abcdef"
 def _no_dotenv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     # Never pick up a developer's .env during tests.
     monkeypatch.chdir(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def _fast_password_hashing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        passwords, "_hasher", PasswordHasher(time_cost=1, memory_cost=64, parallelism=1)
+    )
+    passwords._dummy_hash.cache_clear()
 
 
 @pytest.fixture
