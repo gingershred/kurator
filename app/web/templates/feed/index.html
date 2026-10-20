@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ t("feed.title_" ~ view) }}{% endblock %}
+{% block content %}
+<div class="feed-head">
+  <h1>{{ t("feed.title_" ~ view) }}</h1>
+  <form class="filterbar" method="get" hx-get="{{ path }}" hx-trigger="change" hx-target="#feed" hx-select="#feed" hx-swap="outerHTML" hx-push-url="true">
+    {% if view != "hidden" %}
+    <label>{{ t("feed.filter_show") }}
+      <select name="all">
+        <option value="">{{ t("feed.unwatched") }}</option>
+        <option value="1" {% if filters.include_watched %}selected{% endif %}>{{ t("feed.all") }}</option>
+      </select>
+    </label>
+    {% endif %}
+    <label>{{ t("channels.name") }}
+      <select name="channel">
+        <option value="">{{ t("feed.all_channels") }}</option>
+        {% for sub, channel in subscriptions %}
+        <option value="{{ channel.id }}" {% if filters.channel_id == channel.id %}selected{% endif %}>{{ channel.title or channel.youtube_channel_id }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>{{ t("feed.length") }}
+      <select name="length">
+        <option value="">{{ t("feed.length_any") }}</option>
+        {% for length in lengths %}
+        <option value="{{ length }}" {% if filters.length == length %}selected{% endif %}>{{ t("feed.length_" ~ length) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit">{{ t("feed.apply") }}</button></noscript>
+  </form>
+</div>
+
+{% if not api_available and view == "feed" %}
+<p class="hint muted small">{{ t("feed.no_api_key") }}</p>
+{% endif %}
+
+<div id="feed">
+  {% if page.items %}
+  <div class="grid" id="grid">
+    {% include "feed/_page.html" %}
+  </div>
+  {% elif not subscriptions %}
+  <p class="empty">{{ t("feed.no_subscriptions") }} <a href="/channels">{{ t("feed.add_channels") }}</a></p>
+  {% else %}
+  <p class="empty muted">{{ t("feed.empty_" ~ view) }}</p>
+  {% endif %}
+</div>
+{% endblock %}

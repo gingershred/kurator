@@ -186,7 +186,7 @@ docker compose exec web python -m app.cli create-user <name> [--admin]
 docker compose exec web python -m app.cli reset-password <name>
 docker compose exec web python -m app.cli backup          # DB-Sicherung nach /data/backups
 docker compose exec web python -m app.cli migrate         # Backup + alembic upgrade head (läuft auch automatisch beim Start)
-docker compose exec web python -m app.cli import-takeout <name> /data/import/subscriptions.csv   # ab Phase 1
+docker compose exec web python -m app.cli import-takeout <name> /data/subscriptions.csv   # Datei muss UID 1000 lesbar sein
 
 # Entwicklung (uv)
 uv sync

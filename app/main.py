@@ -20,7 +20,21 @@ from app.auth.ratelimit import LoginRateLimiter
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
 from app.web.deps import LoginRequired
-from app.web.routes import account, admin_status, admin_users, auth, health, home, oidc
+from app.web.routes import (
+    account,
+    admin_status,
+    admin_users,
+    auth,
+    channels,
+    feed,
+    health,
+    oidc,
+    thumbs,
+    videos,
+)
+from app.web.routes import (
+    settings as settings_routes,
+)
 from app.web.templating import render
 
 log = logging.getLogger(__name__)
@@ -118,9 +132,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(health.router)
     app.include_router(auth.router)
-    app.include_router(home.router)
+    # Before the feed router: /videos/{id}/events must win over /videos/{id}/{action}.
+    app.include_router(videos.router)
+    app.include_router(feed.router)
     app.include_router(account.router)
     app.include_router(admin_users.router)
     app.include_router(admin_status.router)
     app.include_router(oidc.router)
+    app.include_router(thumbs.router)
+    app.include_router(channels.router)
+    app.include_router(settings_routes.router)
     return app

@@ -2,13 +2,25 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+import respx
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
-from app.models import Job, JobStatus
+from app.models import Job, JobStatus, User, Video
 from app.services import jobs
 from app.services.settings import worker_heartbeat
-from app.worker import HANDLERS, Worker
+from app.worker import HANDLERS, JobContext, Worker
+from app.youtube.rss import FEED_URL
+from tests.factories import (
+    BASE_TIME,
+    add_channel,
+    channel_id,
+    feed_xml,
+    rss_router,
+    subscribe,
+    video_id,
+)
 
 
 @pytest.fixture
@@ -21,9 +33,9 @@ def worker(settings: Settings, session_factory: sessionmaker[Session]) -> Iterat
 
 def test_processes_jobs_and_survives_failures(worker: Worker, db: Session) -> None:
     seen: list[dict[str, Any]] = []
-    HANDLERS["ok"] = lambda _db, payload: seen.append(payload)
+    HANDLERS["ok"] = lambda _ctx, payload: seen.append(payload)
 
-    def broken(_db: Session, _payload: dict[str, Any]) -> None:
+    def broken(_ctx: JobContext, _payload: dict[str, Any]) -> None:
         raise ValueError("kaputt")
 
     HANDLERS["broken"] = broken
@@ -54,7 +66,13 @@ def test_heartbeat_and_housekeeping(worker: Worker, db: Session) -> None:
 
 def test_scheduler_has_tasks(worker: Worker) -> None:
     scheduler = worker.build_scheduler()
-    assert {job.id for job in scheduler.get_jobs()} == {"heartbeat", "queue", "housekeeping"}
+    assert {job.id for job in scheduler.get_jobs()} == {
+        "heartbeat",
+        "queue",
+        "housekeeping",
+        "poll_feeds",
+        "enrich",
+    }
 
 
 def test_safe_wrapper_swallows_errors(worker: Worker) -> None:
@@ -62,3 +80,18 @@ def test_safe_wrapper_swallows_errors(worker: Worker) -> None:
         raise RuntimeError("x")
 
     worker._safe("boom", boom)()  # must not raise
+
+
+@respx.mock
+def test_fetch_channel_job(worker: Worker, db: Session, alice: User) -> None:
+    channel = add_channel(db, 1)
+    subscribe(db, alice.id, channel)
+    feeds = {channel_id(1): feed_xml(channel_id(1), [(video_id(1), "Neu", BASE_TIME)])}
+    respx.get(FEED_URL).mock(side_effect=rss_router(feeds))
+    respx.get(host__regex=r".*\.ytimg\.com").respond(status_code=404)
+    job = jobs.enqueue(db, "fetch_channel", {"channel_ids": [channel.id]})
+
+    assert worker.drain_queue() == 1
+    db.expire_all()
+    assert db.get(Job, job.id).status == JobStatus.DONE.value  # type: ignore[union-attr]
+    assert db.scalars(select(Video)).one().youtube_video_id == video_id(1)

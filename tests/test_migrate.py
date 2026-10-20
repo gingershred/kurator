@@ -77,3 +77,28 @@ def test_wait_for_head(settings: Settings) -> None:
         migrate.wait_for_head(settings, timeout=0.01, interval=0.01)
     migrate.run_migrations(settings)
     migrate.wait_for_head(settings, timeout=1)
+
+
+def test_real_upgrade_from_phase_0_keeps_data_and_backs_up(settings: Settings) -> None:
+    from tests.conftest import alembic_upgrade
+
+    engine = create_db_engine(settings.database_url)
+    alembic_upgrade(engine, "0001")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                'INSERT INTO "user" (username, role, created_at, updated_at) '
+                "VALUES ('erika', 'admin', '2026-01-01', '2026-01-01')"
+            )
+        )
+    engine.dispose()
+
+    result = migrate.run_migrations(settings)
+
+    assert result.previous_revision == "0001" and result.head_revision == migrate.head_revision()
+    assert result.backup is not None and "from-0001" in result.backup.name
+    with sqlite3.connect(result.backup) as conn:
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0001",)
+    with sqlite3.connect(settings.db_path) as conn:
+        assert conn.execute('SELECT username FROM "user"').fetchall() == [("erika",)]
+        assert conn.execute("SELECT count(*) FROM video").fetchone() == (0,)

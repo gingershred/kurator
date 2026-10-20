@@ -15,6 +15,7 @@ from app import GIT_SHA, LICENSE_URL, SOURCE_URL, __version__
 from app.auth.csrf import get_csrf_token
 from app.config import Settings
 from app.web.i18n import translate
+from app.web.labels import duration_label, rule_label
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -25,6 +26,7 @@ templates.env.globals.update(
     git_sha=GIT_SHA[:7],
     source_url=SOURCE_URL,
     license_url=LICENSE_URL,
+    rule_label=rule_label,
 )
 
 
@@ -34,7 +36,24 @@ def _format_datetime(value: datetime | None, tz: str = "UTC") -> str:
     return value.astimezone(ZoneInfo(tz)).strftime("%d.%m.%Y %H:%M")
 
 
+def _ago(value: datetime | None) -> str:
+    if value is None:
+        return ""
+    seconds = int((datetime.now(value.tzinfo) - value).total_seconds())
+    for limit, unit, key in (
+        (3600, 60, "time.minutes"),
+        (86400, 3600, "time.hours"),
+        (86400 * 30, 86400, "time.days"),
+        (86400 * 365, 86400 * 30, "time.months"),
+    ):
+        if seconds < limit:
+            return translate(key, n=max(1, seconds // unit))
+    return translate("time.years", n=seconds // (86400 * 365))
+
+
 templates.env.filters["dt"] = _format_datetime
+templates.env.filters["ago"] = _ago
+templates.env.filters["duration"] = duration_label
 
 
 def render(

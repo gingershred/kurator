@@ -1,0 +1,21 @@
+{%- set v = item.video -%}
+{%- set s = item.state -%}
+{%- set vid = v.youtube_video_id -%}
+<article class="video{% if s and s.watched_at %} is-watched{% endif %}{% if s and s.hidden_at %} is-hidden{% endif %}" id="v-{{ vid }}" data-video="{{ vid }}" tabindex="-1">
+  <a class="thumb" href="/videos/{{ vid }}">
+    <img src="/thumbs/{{ vid }}.jpg" alt="" loading="lazy" width="480" height="360">
+    {% if v.duration_seconds %}<span class="duration">{{ v.duration_seconds | duration }}</span>{% endif %}
+    {% if v.is_live %}<span class="duration live">{{ t("video.live") }}</span>{% elif v.is_premiere %}<span class="duration live">{{ t("video.upcoming") }}</span>{% endif %}
+    {% if s and s.progress_seconds and v.duration_seconds and not s.watched_at %}
+    <progress value="{{ s.progress_seconds }}" max="{{ v.duration_seconds }}"></progress>
+    {% endif %}
+  </a>
+  <div class="meta">
+    <a class="title" href="/videos/{{ vid }}">{{ v.title }}</a>
+    <div class="muted small">{{ item.channel.title }} · {{ v.published_at | ago }}</div>
+    {% if item.reason %}
+    <div class="reason small">{{ t("feed.reason") }}: {{ t("reason." ~ item.reason.kind) if item.reason.kind != "rule" else rule_label(item.reason.rule.type, item.reason.rule.value, channel_titles) }}</div>
+    {% endif %}
+  </div>
+  {% include "feed/_actions.html" %}
+</article>

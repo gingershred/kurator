@@ -62,15 +62,51 @@ Es gibt keine öffentliche Registrierung. Nutzer legt der Admin an:
   docker compose exec web python -m app.cli reset-password erika
   ```
 
+### Kanäle hinzufügen
+
+Unter **Kanäle** kann jeder Nutzer Kanäle abonnieren:
+
+- per Kanal-ID (`UC…`), Kanal-Link (`https://www.youtube.com/channel/UC…`) oder
+  `@Handle` bzw. `https://www.youtube.com/@…` (Handles brauchen den API-Schlüssel),
+- per **Google-Takeout-Import**: auf [takeout.google.com](https://takeout.google.com) nur
+  „YouTube und YouTube Music“ auswählen, unter den Optionen nur „Abos“ exportieren und die
+  Datei `subscriptions.csv` hochladen. Der Import kostet keine API-Einheiten, auch bei
+  Hunderten Kanälen. Alternativ per CLI:
+
+  ```bash
+  cp subscriptions.csv data/ && sudo chown 1000:1000 data/subscriptions.csv
+  docker compose exec web python -m app.cli import-takeout erika /data/subscriptions.csv
+  ```
+
+Neue Kanäle werden sofort im Hintergrund abgerufen, danach alle `FEED_POLL_MINUTES`
+Minuten (Standard 30). Kanäle werden zwischen Nutzern geteilt und nur einmal abgerufen.
+
 ### YouTube-API-Schlüssel (empfohlen)
 
-Ohne Schlüssel nutzt kurator nur die kostenlosen RSS-Feeds. Mit Schlüssel kommen u. a.
-Videolänge und Live-/Premierenstatus hinzu. Schlüssel anlegen in der
+Ohne Schlüssel nutzt kurator nur die kostenlosen RSS-Feeds der offiziellen
+Upload-Playlist ohne Shorts. Mit Schlüssel kommen Videolänge, Tags und Live-/Premierenstatus
+hinzu – damit greifen Längenfilter, Dauer-Regeln, das Ausblenden von Livestreams/Premieren
+und der zusätzliche Shorts-Filter (alles bis `SHORTS_MAX_SECONDS`). Mit Schlüssel erscheint
+ein Video erst im Feed, wenn seine Länge bekannt ist. Schlüssel anlegen in der
 [Google Cloud Console](https://console.cloud.google.com/apis/library/youtube.googleapis.com)
 → „YouTube Data API v3“ aktivieren → Anmeldedaten → API-Schlüssel (am besten auf die
 YouTube Data API beschränken) → als `YOUTUBE_API_KEY` in die `.env`. Das Tageskontingent
 (10.000 Einheiten) teilen sich alle Nutzer; kurator bleibt mit `QUOTA_DAILY_BUDGET`
 darunter. Der Verbrauch steht auf der Admin-Seite **Status**.
+
+### Privatsphäre
+
+- Thumbnails lädt der Worker einmal herunter (`data/thumbs/`); beim Durchblättern des
+  Feeds spricht dein Browser nicht mit Google.
+- Abgespielt wird über den eingebetteten Player von `youtube-nocookie.com`. Erst beim
+  Öffnen eines Videos lädt der Browser Inhalte von YouTube.
+- Ein Google-Konto ist nicht nötig.
+
+### Bedienung
+
+Tastaturkürzel im Feed: `j`/`k` nächstes/vorheriges Video, `Enter` öffnen, `w` gesehen,
+`h` ausblenden, `l` später ansehen, `+`/`-` bewerten, `?` Hilfe. Ab 90 % Wiedergabe gilt ein
+Video als gesehen; beim nächsten Öffnen geht es an der letzten Stelle weiter.
 
 ## Updates
 

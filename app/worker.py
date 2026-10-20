@@ -6,11 +6,14 @@ A failing job or task is logged and recorded, but never stops the worker.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import signal
 import socket
+import threading
 from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from types import FrameType
 from typing import Any
 
@@ -19,12 +22,22 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
 from app.db import utcnow
-from app.services import jobs
+from app.services import ingest, jobs
 from app.services.settings import record_worker_heartbeat
+from app.youtube.api import YouTubeApi
+from app.youtube.thumbs import prune_orphans
 
 log = logging.getLogger(__name__)
 
-JobHandler = Callable[[Session, dict[str, Any]], None]
+
+@dataclass(frozen=True)
+class JobContext:
+    db: Session
+    settings: Settings
+    session_factory: sessionmaker[Session]
+
+
+JobHandler = Callable[[JobContext, dict[str, Any]], None]
 
 # Job type -> handler. Later phases register downloads etc. here.
 HANDLERS: dict[str, JobHandler] = {}
@@ -32,6 +45,11 @@ HANDLERS: dict[str, JobHandler] = {}
 QUEUE_POLL_SECONDS = 5
 HEARTBEAT_SECONDS = 60
 HOUSEKEEPING_HOURS = 6
+ENRICH_MINUTES = 10
+
+# Feed polling, enrichment and fetch jobs run in different scheduler threads; running them one
+# at a time avoids duplicate inserts and duplicate (quota-costing) API calls.
+FETCH_LOCK = threading.Lock()
 
 
 def register(job_type: str) -> Callable[[JobHandler], JobHandler]:
@@ -59,7 +77,7 @@ class Worker:
                 with jobs.track_run(self.session_factory, f"job:{job.type}", job.id):
                     if handler is None:
                         raise LookupError(f"no handler registered for job type {job.type!r}")
-                    handler(db, job.payload)
+                    handler(JobContext(db, self.settings, self.session_factory), job.payload)
             except Exception as exc:
                 log.exception("job %s (%s) failed", job.id, job.type)
                 db.rollback()
@@ -83,7 +101,35 @@ class Worker:
             with self.session_factory() as db:
                 requeued = jobs.requeue_stale(db)
                 pruned = jobs.prune_runs(db)
-            run.detail = {"requeued": requeued, "pruned": pruned}
+                thumbs_removed = prune_orphans(db, self.settings)
+            run.detail = {"requeued": requeued, "pruned": pruned, "thumbs_removed": thumbs_removed}
+
+    def poll_feeds(self) -> None:
+        with FETCH_LOCK, jobs.track_run(self.session_factory, "poll_feeds") as run:
+            polled, enriched, thumbs = asyncio.run(
+                ingest.poll_and_enrich(self.session_factory, self.settings)
+            )
+            run.detail = {
+                "poll": asdict(polled),
+                "enrich": asdict(enriched),
+                "thumbs": asdict(thumbs),
+            }
+
+    def enrich(self) -> None:
+        """Re-check live/upcoming videos and catch up on enrichment between polls."""
+        if self.settings.youtube_api_key is None:
+            return
+
+        async def run_enrich() -> ingest.EnrichResult:
+            async with ingest.http_client() as client:
+                api = YouTubeApi(self.settings, self.session_factory, client)
+                return await ingest.enrich_pending(self.session_factory, api, self.settings)
+
+        with FETCH_LOCK:
+            result = asyncio.run(run_enrich())
+        if result.requested:
+            with jobs.track_run(self.session_factory, "enrich") as run:
+                run.detail = asdict(result)
 
     def _safe(self, name: str, func: Callable[[], object]) -> Callable[[], None]:
         def wrapper() -> None:
@@ -115,6 +161,23 @@ class Worker:
             **common,
         )
         scheduler.add_job(
+            self._safe("poll_feeds", self.poll_feeds),
+            "interval",
+            minutes=self.settings.feed_poll_minutes,
+            next_run_time=utcnow(),
+            id="poll_feeds",
+            name="poll_feeds",
+            **common,
+        )
+        scheduler.add_job(
+            self._safe("enrich", self.enrich),
+            "interval",
+            minutes=ENRICH_MINUTES,
+            id="enrich",
+            name="enrich",
+            **common,
+        )
+        scheduler.add_job(
             self._safe("housekeeping", self.housekeeping),
             "interval",
             hours=HOUSEKEEPING_HOURS,
@@ -137,3 +200,15 @@ class Worker:
         log.info("worker %s started", self.worker_id)
         scheduler.start()
         log.info("worker stopped")
+
+
+@register("fetch_channel")
+def fetch_channel(ctx: JobContext, payload: dict[str, Any]) -> None:
+    """Fetch one channel right away (e.g. after it was added)."""
+    channel_ids = [int(cid) for cid in payload.get("channel_ids", [])]
+    with FETCH_LOCK:
+        polled, _enriched, _thumbs = asyncio.run(
+            ingest.poll_and_enrich(ctx.session_factory, ctx.settings, channel_ids)
+        )
+    if polled.failed and not polled.ok:
+        raise RuntimeError(f"fetching {polled.failed} channel(s) failed")

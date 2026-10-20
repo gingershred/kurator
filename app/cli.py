@@ -106,6 +106,39 @@ def cmd_reset_password(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_takeout(settings: Settings, args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from app.importers.takeout import parse_subscriptions_csv
+    from app.services.channels import import_channels
+
+    _prepare(settings)
+    path = Path(args.file)
+    if not path.is_file():
+        print(f"Datei {path} nicht gefunden.", file=sys.stderr)
+        return 1
+    rows = parse_subscriptions_csv(path.read_bytes())
+    engine = create_db_engine(settings.database_url)
+    try:
+        with create_session_factory(engine)() as db:
+            user = users.get_user_by_username(db, args.username)
+            if user is None:
+                print(f"Nutzer „{args.username}“ nicht gefunden.", file=sys.stderr)
+                return 1
+            result = import_channels(db, user, rows.channels)
+    finally:
+        engine.dispose()
+    print(
+        translate(
+            "channels.imported",
+            added=result.added,
+            existing=result.existing,
+            invalid=rows.invalid,
+        )
+    )
+    return 0
+
+
 def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -195,6 +228,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--admin", action="store_true", help="als Admin anlegen")
     p.add_argument("--password-stdin", action="store_true", help="Passwort von stdin lesen")
     p.set_defaults(func=cmd_create_user)
+
+    p = sub.add_parser("import-takeout", help="Abos aus Google Takeout importieren")
+    p.add_argument("username")
+    p.add_argument("file", help="Pfad zur subscriptions.csv")
+    p.set_defaults(func=cmd_import_takeout)
 
     p = sub.add_parser("reset-password", help="Passwort eines Nutzers neu setzen")
     p.add_argument("username")

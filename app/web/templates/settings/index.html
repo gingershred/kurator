@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ t("settings.title") }}{% endblock %}
+{% block content %}
+<h1>{{ t("settings.title") }}</h1>
+
+<section class="card">
+  <h2>{{ t("settings.feed") }}</h2>
+  <form method="post" action="/settings" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% for key in toggles %}
+    <label class="check"><input type="checkbox" name="{{ key }}" {% if values[key] %}checked{% endif %}> {{ t("settings." ~ key) }}</label>
+    {% endfor %}
+    <div><button type="submit">{{ t("common.save") }}</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>{{ t("settings.rules") }}</h2>
+  <p class="muted">{{ t("settings.rules_hint") }}</p>
+  {% if rules %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>{{ t("settings.rule") }}</th><th>{{ t("admin.users.active") }}</th><th>{{ t("admin.users.actions") }}</th></tr></thead>
+      <tbody>
+        {% for rule, label in rules %}
+        <tr{% if not rule.is_active %} class="muted"{% endif %}>
+          <td>{{ label }}</td>
+          <td>{{ t("common.yes") if rule.is_active else t("common.no") }}</td>
+          <td class="actions">
+            <form method="post" action="/settings/rules/{{ rule.id }}/toggle" class="inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="link">{{ t("settings.rule_disable") if rule.is_active else t("settings.rule_enable") }}</button>
+            </form>
+            <form method="post" action="/settings/rules/{{ rule.id }}/delete" class="inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="link danger-text">{{ t("settings.rule_delete") }}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h3>{{ t("settings.rule_new") }}</h3>
+  <form method="post" action="/settings/rules" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ t("settings.rule_type") }}
+      <select name="type">
+        {% for rule_type in rule_types %}<option value="{{ rule_type }}">{{ t("rule.type." ~ rule_type) }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="grow">{{ t("settings.rule_value") }}
+      <input name="value" maxlength="200" autocomplete="off">
+    </label>
+    {% if channels %}
+    <label>{{ t("settings.rule_channel") }}
+      <select name="channel">
+        {% for cid, title in channels.items() %}<option value="{{ cid }}">{{ title }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <button type="submit">{{ t("settings.rule_add") }}</button>
+  </form>
+  <p class="muted">{{ t("settings.rule_value_hint") }}</p>
+</section>
+{% endblock %}
