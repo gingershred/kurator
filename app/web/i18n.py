@@ -243,6 +243,19 @@ MESSAGES: dict[str, dict[str, str]] = {
         "admin.status.api_key_missing": "nicht gesetzt – nur RSS-Daten",
         "admin.status.quota": "Quota heute",
         "admin.status.quota_value": "{used} von {budget} Einheiten (davon Suche: {search})",
+        "admin.status.rss": "Feed-Abruf (letzter Lauf)",
+        "admin.status.rss_value": (
+            "{ok} von {channels} Kanälen ok, davon {fallback} per API nachgeladen; "
+            "{failed} fehlgeschlagen"
+        ),
+        "admin.status.rss_degraded": "RSS gestört",
+        "admin.status.rss_degraded_no_key": (
+            "Mit einem YouTube-API-Schlüssel lädt kurator betroffene Kanäle über die "
+            "offizielle API nach."
+        ),
+        "admin.status.gone_channels": "{count} Kanal/Kanäle existieren nicht mehr",
+        "admin.status.fallback": "API-Ersatzabruf heute",
+        "admin.status.fallback_value": "{used} von höchstens {budget} Einheiten",
         "admin.status.worker": "Worker",
         "admin.status.worker_alive": "aktiv (letztes Lebenszeichen {when})",
         "admin.status.worker_dead": "kein Lebenszeichen seit {when}",

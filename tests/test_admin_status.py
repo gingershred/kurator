@@ -43,3 +43,34 @@ def test_status_page(admin_client: TestClient, db: Session) -> None:
     assert "42 von 8000 Einheiten" in page.text
     assert head_revision() in page.text
     assert "noch kein Lebenszeichen" in page.text
+
+
+def test_rss_health_and_fallback(
+    admin_client: TestClient,
+    db: Session,
+    settings: Settings,
+    session_factory: sessionmaker[Session],
+) -> None:
+    from app.models import Channel
+
+    with jobs.track_run(session_factory, "poll_feeds") as run:
+        run.detail = {
+            "poll": {"channels": 10, "ok": 7, "failed": 3, "rss_failed": 5, "fallback": 2}
+        }
+    quota.record(db, "playlistItems.list", units=2)
+    db.add(Channel(youtube_channel_id="UC" + "z" * 22, title="weg", gone_at=utcnow()))
+    db.commit()
+
+    result = status.collect(db, settings)
+    assert result.rss_degraded and result.fallback_used == 2 and result.fallback_budget == 2000
+    assert result.gone_channels == 1
+
+    page = admin_client.get("/admin/status").text
+    assert "7 von 10 Kanälen ok, davon 2 per API nachgeladen" in page
+    assert "RSS gestört" in page and "API-Schlüssel" in page
+    assert "2 von höchstens 2000 Einheiten" in page
+    assert "1 Kanal/Kanäle existieren nicht mehr" in page
+
+
+def test_rss_not_degraded_without_runs(db: Session, settings: Settings) -> None:
+    assert not status.collect(db, settings).rss_degraded
