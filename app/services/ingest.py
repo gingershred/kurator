@@ -20,6 +20,7 @@ from app.db import utcnow
 from app.models import Channel, LiveStatus, Subscription, SubscriptionStatus, Video
 from app.youtube.api import ApiError, ApiUnavailable, QuotaExhausted, VideoInfo, YouTubeApi
 from app.youtube.rss import ChannelFeed, FeedError, fetch_uploads
+from app.youtube.thumbs import ThumbResult, cache_pending
 
 log = logging.getLogger(__name__)
 
@@ -234,8 +235,9 @@ async def poll_and_enrich(
     session_factory: sessionmaker[Session],
     settings: Settings,
     channel_ids: list[int] | None = None,
-) -> tuple[PollResult, EnrichResult]:
-    """One complete fetch run: RSS for the given (or all active) channels, then enrichment."""
+) -> tuple[PollResult, EnrichResult, ThumbResult]:
+    """One complete fetch run: RSS for the given (or all active) channels, enrichment and
+    thumbnail caching."""
     if channel_ids is None:
         with session_factory() as db:
             channel_ids = channels_to_poll(db)
@@ -244,4 +246,5 @@ async def poll_and_enrich(
         enriched = await enrich_pending(
             session_factory, YouTubeApi(settings, session_factory, client), settings
         )
-    return polled, enriched
+        thumbs = await cache_pending(session_factory, settings, client)
+    return polled, enriched, thumbs

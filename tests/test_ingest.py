@@ -241,6 +241,9 @@ async def test_simulated_day_with_100_channels_stays_far_below_1000_units(
 
     respx.get(FEED_URL).mock(side_effect=rss)
     respx.get(f"{API_BASE}/videos").mock(side_effect=videos)
+    respx.get(host__regex=r".*\.ytimg\.com").respond(
+        content=b"jpeg", headers={"content-type": "image/jpeg"}
+    )
 
     n = 0
     for poll in range(48):  # every 30 minutes

@@ -24,6 +24,7 @@ from app.db import utcnow
 from app.services import ingest, jobs
 from app.services.settings import record_worker_heartbeat
 from app.youtube.api import YouTubeApi
+from app.youtube.thumbs import prune_orphans
 
 log = logging.getLogger(__name__)
 
@@ -95,14 +96,19 @@ class Worker:
             with self.session_factory() as db:
                 requeued = jobs.requeue_stale(db)
                 pruned = jobs.prune_runs(db)
-            run.detail = {"requeued": requeued, "pruned": pruned}
+                thumbs_removed = prune_orphans(db, self.settings)
+            run.detail = {"requeued": requeued, "pruned": pruned, "thumbs_removed": thumbs_removed}
 
     def poll_feeds(self) -> None:
         with jobs.track_run(self.session_factory, "poll_feeds") as run:
-            polled, enriched = asyncio.run(
+            polled, enriched, thumbs = asyncio.run(
                 ingest.poll_and_enrich(self.session_factory, self.settings)
             )
-            run.detail = {"poll": asdict(polled), "enrich": asdict(enriched)}
+            run.detail = {
+                "poll": asdict(polled),
+                "enrich": asdict(enriched),
+                "thumbs": asdict(thumbs),
+            }
 
     def enrich(self) -> None:
         """Re-check live/upcoming videos and catch up on enrichment between polls."""
@@ -194,7 +200,7 @@ class Worker:
 def fetch_channel(ctx: JobContext, payload: dict[str, Any]) -> None:
     """Fetch one channel right away (e.g. after it was added)."""
     channel_ids = [int(cid) for cid in payload.get("channel_ids", [])]
-    polled, _enriched = asyncio.run(
+    polled, _enriched, _thumbs = asyncio.run(
         ingest.poll_and_enrich(ctx.session_factory, ctx.settings, channel_ids)
     )
     if polled.failed and not polled.ok:

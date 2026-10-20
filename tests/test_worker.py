@@ -88,6 +88,7 @@ def test_fetch_channel_job(worker: Worker, db: Session, alice: User) -> None:
     subscribe(db, alice.id, channel)
     feeds = {channel_id(1): feed_xml(channel_id(1), [(video_id(1), "Neu", BASE_TIME)])}
     respx.get(FEED_URL).mock(side_effect=rss_router(feeds))
+    respx.get(host__regex=r".*\.ytimg\.com").respond(status_code=404)
     job = jobs.enqueue(db, "fetch_channel", {"channel_ids": [channel.id]})
 
     assert worker.drain_queue() == 1

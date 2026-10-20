@@ -20,7 +20,16 @@ from app.auth.ratelimit import LoginRateLimiter
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
 from app.web.deps import LoginRequired
-from app.web.routes import account, admin_status, admin_users, auth, health, home, oidc
+from app.web.routes import (
+    account,
+    admin_status,
+    admin_users,
+    auth,
+    health,
+    home,
+    oidc,
+    thumbs,
+)
 from app.web.templating import render
 
 log = logging.getLogger(__name__)
@@ -123,4 +132,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_users.router)
     app.include_router(admin_status.router)
     app.include_router(oidc.router)
+    app.include_router(thumbs.router)
     return app
