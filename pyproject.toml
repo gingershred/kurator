@@ -63,7 +63,7 @@ module = ["tests.*"]
 warn_return_any = false
 
 [[tool.mypy.overrides]]
-module = ["apscheduler.*", "authlib.*", "feedparser.*"]
+module = ["apscheduler.*", "authlib.*", "feedparser.*", "yt_dlp.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
