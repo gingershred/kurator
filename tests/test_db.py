@@ -92,3 +92,42 @@ def test_downgrade_and_upgrade_roundtrip(engine: Engine) -> None:
     with engine.connect() as conn:
         tables = {r[0] for r in conn.execute(text("SELECT name FROM sqlite_master"))}
     assert {"user", "user_setting", "global_setting", "job", "job_run", "quota_ledger"} <= tables
+    assert {
+        "channel",
+        "video",
+        "subscription",
+        "user_video_state",
+        "watch_event",
+        "filter_rule",
+    } <= tables
+
+
+def test_deleting_user_removes_feed_data_but_keeps_shared(db: Session) -> None:
+    from app.models import Channel, FilterRule, Subscription, UserVideoState, Video, WatchEvent
+
+    user = User(username="alice", role="user")
+    channel = Channel(youtube_channel_id="UC" + "a" * 22, title="Kanal")
+    db.add_all([user, channel])
+    db.flush()
+    video = Video(
+        youtube_video_id="abcdefghijk", channel_id=channel.id, published_at=datetime.now(UTC)
+    )
+    db.add(video)
+    db.flush()
+    db.add_all(
+        [
+            Subscription(user_id=user.id, channel_id=channel.id),
+            UserVideoState(user_id=user.id, video_id=video.id, rating=1),
+            WatchEvent(user_id=user.id, video_id=video.id, event="play"),
+            FilterRule(user_id=user.id, type="keyword_title", value="x"),
+        ]
+    )
+    db.commit()
+
+    db.execute(text('DELETE FROM "user" WHERE id = :id'), {"id": user.id})
+    db.commit()
+
+    for model in (Subscription, UserVideoState, WatchEvent, FilterRule):
+        assert db.scalars(select(model)).all() == [], model
+    assert db.scalars(select(Channel)).one().title == "Kanal"
+    assert db.scalars(select(Video)).one().youtube_video_id == "abcdefghijk"
