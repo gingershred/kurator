@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ t("login.title") }}{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>{{ t("login.title") }}</h1>
+  {% if error %}<p class="flash flash-error" role="alert">{{ error }}</p>{% endif %}
+  {% if settings.local_login_enabled %}
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>{{ t("login.username") }}
+      <input name="username" value="{{ username }}" autocomplete="username" required autofocus>
+    </label>
+    <label>{{ t("login.password") }}
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">{{ t("login.submit") }}</button>
+  </form>
+  {% endif %}
+  {% if settings.oidc_enabled %}
+  {% if settings.local_login_enabled %}<p class="muted center">{{ t("login.or") }}</p>{% endif %}
+  <a class="button secondary block" href="/auth/oidc/login?next={{ next | urlencode }}">{{ t("login.oidc") }}</a>
+  {% endif %}
+</section>
+{% endblock %}

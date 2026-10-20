@@ -57,6 +57,10 @@ python_version = "3.12"
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
+module = ["tests.*"]
+warn_return_any = false
+
+[[tool.mypy.overrides]]
 module = ["apscheduler.*", "authlib.*"]
 ignore_missing_imports = true
 
@@ -64,4 +68,7 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-filterwarnings = ["error::DeprecationWarning:app.*"]
+filterwarnings = [
+    "error::DeprecationWarning:app.*",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
