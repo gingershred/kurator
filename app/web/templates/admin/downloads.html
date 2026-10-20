@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ t("admin.downloads.title") }}{% endblock %}
+{% block content %}
+<h1>{{ t("admin.downloads.title") }}</h1>
+
+<section class="card">
+  <h2>{{ t("admin.downloads.settings") }}</h2>
+  <form method="post" action="/admin/downloads/settings" class="stack form-narrow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="check"><input type="checkbox" name="enabled" {% if values.enabled %}checked{% endif %}> {{ t("admin.downloads.enabled") }}</label>
+    <label>{{ t("admin.downloads.max_quality") }}
+      <select name="max_quality">{% for q in qualities %}<option value="{{ q }}" {% if q == values.max_quality %}selected{% endif %}>{{ q }}p</option>{% endfor %}</select>
+    </label>
+    <label>{{ t("admin.downloads.max_storage") }}
+      <input type="number" name="max_storage_gb" min="1" step="1" value="{{ values.max_storage_gb | round(0) | int }}" required>
+    </label>
+    <label>{{ t("admin.downloads.retention") }}
+      <input type="number" name="retention_days" min="0" max="3650" value="{{ values.retention_days }}" required>
+    </label>
+    <label>{{ t("admin.downloads.concurrency") }}
+      <input type="number" name="concurrency" min="1" max="3" value="{{ values.concurrency }}" required>
+    </label>
+    <label>{{ t("admin.downloads.fallback") }}
+      <input type="number" name="fallback_percent" min="0" max="50" value="{{ values.fallback_percent }}" required>
+    </label>
+    <div><button type="submit">{{ t("common.save") }}</button></div>
+  </form>
+  <p class="muted small">{{ t("admin.downloads.permission_hint") }}</p>
+</section>
+
+<section class="card">
+  <h2>{{ t("admin.downloads.storage") }}</h2>
+  <p>{{ t("admin.downloads.storage_value", used=(used / 1073741824) | round(2), limit=(limit / 1073741824) | round(0) | int) }}</p>
+  <meter min="0" max="{{ limit }}" value="{{ used }}" high="{{ (limit * 0.9) | int }}"></meter>
+  <dl class="facts">
+    <dt>yt-dlp</dt>
+    <dd>{{ tooling.ytdlp_version }}{% if tooling.ytdlp_outdated %} <span class="badge badge-failed">{{ t("admin.downloads.ytdlp_old", days=tooling.ytdlp_age_days) }}</span>{% endif %}</dd>
+    <dt>ffmpeg</dt><dd>{{ t("common.yes") if tooling.ffmpeg else t("admin.downloads.missing") }}</dd>
+    <dt>Deno</dt><dd>{{ t("common.yes") if tooling.deno else t("admin.downloads.missing") }}</dd>
+  </dl>
+</section>
+
+{% for state in ("running", "queued", "failed", "done") %}
+{% set rows = groups[state] %}
+<h2>{{ t("admin.downloads.group_" ~ state) }} ({{ rows | length }})</h2>
+{% if rows %}
+<div class="table-wrap card">
+  <table>
+    <thead><tr>
+      <th>{{ t("admin.downloads.video") }}</th><th>{{ t("admin.downloads.kind") }}</th>
+      <th>{{ t("admin.downloads.info") }}</th><th>{{ t("admin.downloads.requesters") }}</th>
+      <th>{{ t("admin.users.actions") }}</th>
+    </tr></thead>
+    <tbody>
+      {% for row in rows %}
+      {% set d = row.download %}
+      <tr>
+        <td><a href="/videos/{{ row.video.youtube_video_id }}">{{ row.video.title }}</a></td>
+        <td>{{ t("download.kind_" ~ d.kind) }}</td>
+        <td>
+          {% if state == "running" %}{{ d.progress }} %
+          {% elif state == "failed" %}<span title="{{ d.error or '' }}">{{ t("download.hint_" ~ d.error_hint) if d.error_hint else (d.error or "")[:120] }}</span>
+          {% elif state == "done" %}{{ (d.size_bytes / 1048576) | round(0) | int }} MB{% if d.height %} · {{ d.height }}p{% endif %} · {{ d.finished_at | dt(tz) }}{% if d.last_played_at %} · {{ t("admin.downloads.played", when=d.last_played_at | dt(tz)) }}{% endif %}
+          {% elif d.error_hint == "storage_full" %}{{ t("download.hint_storage_full") }}{% endif %}
+        </td>
+        <td>{{ row.requesters }}</td>
+        <td class="actions">
+          {% if state == "failed" %}
+          <form method="post" action="/admin/downloads/{{ d.id }}/retry" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link">{{ t("download.retry") }}</button>
+          </form>
+          {% endif %}
+          {% if state in ("done", "failed") %}
+          <form method="post" action="/admin/downloads/{{ d.id }}/delete" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link danger-text">{{ t("settings.rule_delete") }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}<p class="muted">{{ t("common.none") }}</p>{% endif %}
+{% endfor %}
+{% endblock %}

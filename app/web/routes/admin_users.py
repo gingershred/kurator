@@ -124,6 +124,22 @@ def set_active(
     return _apply(request, user_id, key, lambda: users.set_active(db, admin, user, active))
 
 
+@router.post("/{user_id}/can-download")
+def set_can_download(
+    request: Request,
+    user_id: int,
+    allowed: bool = Form(...),
+    db: Session = Depends(get_db),
+) -> Response:
+    user = _target(db, user_id)
+    return _apply(
+        request,
+        user_id,
+        "admin.users.can_download_saved",
+        lambda: users.set_can_download(db, user, allowed),
+    )
+
+
 @router.post("/{user_id}/unlink-oidc")
 def unlink_oidc(request: Request, user_id: int, db: Session = Depends(get_db)) -> Response:
     user = _target(db, user_id)

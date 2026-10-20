@@ -9,6 +9,7 @@
         <th>{{ t("admin.users.username") }}</th>
         <th>{{ t("admin.users.role") }}</th>
         <th>{{ t("admin.users.active") }}</th>
+        <th>{{ t("admin.users.can_download") }}</th>
         <th>{{ t("admin.users.oidc") }}</th>
         <th>{{ t("admin.users.last_login") }}</th>
         <th>{{ t("admin.users.actions") }}</th>
@@ -20,6 +21,7 @@
         <td>{{ u.username }}</td>
         <td>{{ t("role." ~ u.role) }}</td>
         <td>{{ t("common.yes") if u.is_active else t("common.no") }}</td>
+        <td>{{ t("common.yes") if u.may_download else t("common.no") }}</td>
         <td>{{ t("admin.users.oidc_linked") if u.oidc_subject else t("common.none") }}</td>
         <td>{{ u.last_login_at | dt(tz) }}</td>
         <td><a href="/admin/users/{{ u.id }}">{{ t("admin.users.edit") }}</a></td>

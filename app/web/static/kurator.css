@@ -157,3 +157,4 @@ kbd { font-family: ui-monospace, monospace; font-size: .85rem; padding: .05rem .
 .download-kind { color: var(--muted); min-width: 5.5rem; }
 .downloads progress { width: 8rem; }
 .dl-badge { font-size: .75rem; color: var(--accent); margin-left: .35rem; }
+meter { width: 100%; max-width: 30rem; height: 1rem; }

@@ -9,6 +9,8 @@
     <dt>{{ t("admin.users.created") }}</dt><dd>{{ user.created_at | dt(tz) }}</dd>
     <dt>{{ t("admin.users.last_login") }}</dt><dd>{{ user.last_login_at | dt(tz) }}</dd>
     <dt>{{ t("admin.users.active") }}</dt><dd>{{ t("common.yes") if user.is_active else t("common.no") }}</dd>
+    <dt>{{ t("admin.users.can_download") }}</dt>
+    <dd>{{ t("common.yes") if user.may_download else t("common.no") }}{% if user.is_admin %} ({{ t("role.admin") }}){% endif %}</dd>
     <dt>{{ t("admin.users.oidc") }}</dt>
     <dd>{{ t("admin.users.oidc_linked") if user.oidc_subject else t("admin.users.oidc_not_linked") }}</dd>
   </dl>
@@ -48,6 +50,11 @@
       <input type="hidden" name="active" value="true">
       <button type="submit">{{ t("admin.users.activate") }}</button>
       {% endif %}
+    </form>
+    <form method="post" action="/admin/users/{{ user.id }}/can-download" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="allowed" value="{{ 'false' if user.can_download else 'true' }}">
+      <button type="submit" class="secondary">{{ t("admin.users.can_download") }}: {{ t("common.yes") if user.can_download else t("common.no") }}</button>
     </form>
     {% if user.oidc_subject %}
     <form method="post" action="/admin/users/{{ user.id }}/unlink-oidc" class="inline">

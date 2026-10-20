@@ -22,6 +22,7 @@ from app.db import create_db_engine, create_session_factory
 from app.web.deps import LoginRequired
 from app.web.routes import (
     account,
+    admin_downloads,
     admin_status,
     admin_users,
     auth,
@@ -140,6 +141,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(account.router)
     app.include_router(admin_users.router)
     app.include_router(admin_status.router)
+    app.include_router(admin_downloads.router)
     app.include_router(oidc.router)
     app.include_router(thumbs.router)
     app.include_router(channels.router)

@@ -22,6 +22,7 @@
       <a href="/settings">{{ t("nav.settings") }}</a>
       {% if current_user.is_admin %}
       <a href="/admin/users">{{ t("nav.admin_users") }}</a>
+      <a href="/admin/downloads">{{ t("nav.admin_downloads") }}</a>
       <a href="/admin/status">{{ t("nav.admin_status") }}</a>
       {% endif %}
       <a href="/account">{{ t("nav.account") }} ({{ current_user.username }})</a>

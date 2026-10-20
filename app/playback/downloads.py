@@ -30,7 +30,7 @@ from app.models import (
     Video,
 )
 from app.services import jobs, video_state
-from app.services.settings import get_global_setting
+from app.services.settings import get_global_setting, set_global_setting
 
 log = logging.getLogger(__name__)
 
@@ -390,3 +390,107 @@ def queue_auto_downloads(
             continue
         queued += 1
     return queued
+
+
+# --- Admin --------------------------------------------------------------------------------------
+
+QUALITIES = (360, 480, 720, 1080, 1440, 2160)
+YTDLP_MAX_AGE_DAYS = 60
+
+
+@dataclass(frozen=True)
+class AdminSettings:
+    enabled: bool
+    max_quality: int
+    max_storage_gb: float
+    retention_days: int
+    concurrency: int
+    fallback_percent: int
+
+
+def admin_settings(db: Session, settings: Settings) -> AdminSettings:
+    return AdminSettings(
+        enabled=enabled(db, settings),
+        max_quality=max_height(db, settings),
+        max_storage_gb=float(get_global_setting(db, settings, "download_max_storage_gb")),
+        retention_days=int(get_global_setting(db, settings, "download_retention_days")),
+        concurrency=int(get_global_setting(db, settings, "download_concurrency")),
+        fallback_percent=round(float(get_global_setting(db, settings, "rss_fallback_share")) * 100),
+    )
+
+
+def save_admin_settings(db: Session, admin: User, values: AdminSettings) -> None:
+    if values.max_quality not in QUALITIES:
+        raise DownloadError("error.download_settings_invalid")
+    if not 0 < values.max_storage_gb <= 100_000 or not 0 <= values.retention_days <= 3650:
+        raise DownloadError("error.download_settings_invalid")
+    if not 1 <= values.concurrency <= 3 or not 0 <= values.fallback_percent <= 50:
+        raise DownloadError("error.download_settings_invalid")
+    for key, value in (
+        ("downloads_enabled", values.enabled),
+        ("download_max_quality", values.max_quality),
+        ("download_max_storage_gb", values.max_storage_gb),
+        ("download_retention_days", values.retention_days),
+        ("download_concurrency", values.concurrency),
+        ("rss_fallback_share", values.fallback_percent / 100),
+    ):
+        set_global_setting(db, key, value, updated_by=admin.id)
+
+
+@dataclass(frozen=True)
+class AdminRow:
+    download: Download
+    video: Video
+    requesters: int
+
+
+def admin_overview(db: Session) -> dict[str, list[AdminRow]]:
+    rows = db.execute(
+        select(Download, Video)
+        .join(Video, Video.id == Download.video_id)
+        .where(Download.status != DownloadStatus.DELETED.value)
+        .order_by(Download.created_at.desc())
+    ).all()
+    groups: dict[str, list[AdminRow]] = {s.value: [] for s in DownloadStatus}
+    for download, video in rows:
+        groups[download.status].append(AdminRow(download, video, request_count(db, download)))
+    return groups
+
+
+def retry(db: Session, download: Download) -> None:
+    download.status = DownloadStatus.QUEUED.value
+    download.error = download.error_hint = None
+    download.progress = 0
+    db.commit()
+    jobs.enqueue(db, DOWNLOAD_JOB, {"download_id": download.id}, max_attempts=3)
+
+
+def delete_by_admin(db: Session, settings: Settings, download: Download) -> None:
+    mark_deleted(db, settings, download, utcnow())
+    db.commit()
+
+
+@dataclass(frozen=True)
+class Tooling:
+    ytdlp_version: str
+    ytdlp_age_days: int | None
+    ffmpeg: bool
+    deno: bool
+
+    @property
+    def ytdlp_outdated(self) -> bool:
+        return self.ytdlp_age_days is not None and self.ytdlp_age_days > YTDLP_MAX_AGE_DAYS
+
+
+def tooling() -> Tooling:
+    import shutil
+
+    from app.playback import ytdlp
+
+    version = ytdlp.version()
+    return Tooling(
+        ytdlp_version=version,
+        ytdlp_age_days=ytdlp.version_age_days(version),
+        ffmpeg=shutil.which("ffmpeg") is not None,
+        deno=shutil.which("deno") is not None,
+    )
