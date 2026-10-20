@@ -40,8 +40,8 @@ def test_sessions_are_independent(app: FastAPI, alice: User, bob: User) -> None:
     alice_client, bob_client = new_client(app), new_client(app)
     login(alice_client, "alice")
     login(bob_client, "bob")
-    assert "Willkommen, alice!" in alice_client.get("/").text
-    assert "Willkommen, bob!" in bob_client.get("/").text
+    assert "Konto (alice)" in alice_client.get("/").text
+    assert "Konto (bob)" in bob_client.get("/").text
     post(alice_client, "/logout")
     assert bob_client.get("/", follow_redirects=False).status_code == 200
 

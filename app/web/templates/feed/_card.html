@@ -1,0 +1,52 @@
+{%- set v = item.video -%}
+{%- set s = item.state -%}
+{%- set vid = v.youtube_video_id -%}
+<article class="video{% if s and s.watched_at %} is-watched{% endif %}{% if s and s.hidden_at %} is-hidden{% endif %}" id="v-{{ vid }}" data-video="{{ vid }}" tabindex="-1">
+  <a class="thumb" href="/videos/{{ vid }}">
+    <img src="/thumbs/{{ vid }}.jpg" alt="" loading="lazy" width="480" height="360">
+    {% if v.duration_seconds %}<span class="duration">{{ v.duration_seconds | duration }}</span>{% endif %}
+    {% if v.is_live %}<span class="duration live">{{ t("video.live") }}</span>{% elif v.is_premiere %}<span class="duration live">{{ t("video.upcoming") }}</span>{% endif %}
+    {% if s and s.progress_seconds and v.duration_seconds and not s.watched_at %}
+    <progress value="{{ s.progress_seconds }}" max="{{ v.duration_seconds }}"></progress>
+    {% endif %}
+  </a>
+  <div class="meta">
+    <a class="title" href="/videos/{{ vid }}">{{ v.title }}</a>
+    <div class="muted small">{{ item.channel.title }} · {{ v.published_at | ago }}</div>
+    {% if item.reason %}
+    <div class="reason small">{{ t("feed.reason") }}: {{ t("reason." ~ item.reason.kind) if item.reason.kind != "rule" else rule_label(item.reason.rule.type, item.reason.rule.value, channel_titles) }}</div>
+    {% endif %}
+  </div>
+  <div class="video-actions" hx-target="closest article" hx-swap="outerHTML" hx-vals='{"view": "{{ view }}"}'>
+    {% if s and s.watched_at %}
+    <button class="icon" hx-post="/videos/{{ vid }}/unwatched" data-key="w" title="{{ t('action.unwatched') }}">✓ {{ t("action.watched_state") }}</button>
+    {% else %}
+    <button class="icon" hx-post="/videos/{{ vid }}/watched" data-key="w" title="{{ t('action.watched') }} (w)">{{ t("action.watched") }}</button>
+    {% endif %}
+    {% if s and s.watch_later_at %}
+    <button class="icon" hx-post="/videos/{{ vid }}/unlater" data-key="l" title="{{ t('action.unlater') }}">★ {{ t("action.later_state") }}</button>
+    {% else %}
+    <button class="icon" hx-post="/videos/{{ vid }}/later" data-key="l" title="{{ t('action.later') }} (l)">{{ t("action.later") }}</button>
+    {% endif %}
+    <button class="icon{% if s and s.rating == 1 %} active{% endif %}" hx-post="/videos/{{ vid }}/rate" hx-vals='{"rating": "{{ 0 if s and s.rating == 1 else 1 }}"}' data-key="+" title="{{ t('action.like') }} (+)" aria-pressed="{{ 'true' if s and s.rating == 1 else 'false' }}">👍</button>
+    <button class="icon{% if s and s.rating == -1 %} active{% endif %}" hx-post="/videos/{{ vid }}/rate" hx-vals='{"rating": "{{ 0 if s and s.rating == -1 else -1 }}"}' data-key="-" title="{{ t('action.dislike') }} (-)" aria-pressed="{{ 'true' if s and s.rating == -1 else 'false' }}">👎</button>
+    {% if s and s.hidden_at %}
+    <button class="icon" hx-post="/videos/{{ vid }}/unhide" data-key="h" title="{{ t('action.unhide') }}">{{ t("action.unhide") }}</button>
+    {% elif not item.reason %}
+    <button class="icon" hx-post="/videos/{{ vid }}/hide" data-key="h" title="{{ t('action.hide') }} (h)">{{ t("action.hide") }}</button>
+    {% endif %}
+    {% if item.reason and item.reason.kind == "rule" %}
+    <form method="post" action="/settings/rules/{{ item.reason.rule.rule_id }}/toggle" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="icon">{{ t("action.disable_rule") }}</button>
+    </form>
+    {% elif item.reason and item.reason.kind == "muted" and item.subscription %}
+    <form method="post" action="/channels/{{ item.subscription.id }}/unmute" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="icon">{{ t("channels.unmute") }}</button>
+    </form>
+    {% elif item.reason and item.reason.kind in ("live", "premiere") %}
+    <a class="icon button secondary" href="/settings">{{ t("nav.settings") }}</a>
+    {% endif %}
+  </div>
+</article>

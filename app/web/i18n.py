@@ -10,7 +10,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     "de": {
         # General
         "app.tagline": "Dein ruhiger Abo-Feed",
-        "nav.home": "Startseite",
         "nav.account": "Konto",
         "nav.admin_users": "Nutzer",
         "nav.admin_status": "Status",
@@ -112,13 +111,58 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rule.label.min_duration": "kürzer als {minutes} min",
         "rule.label.max_duration": "länger als {minutes} min",
         "rule.label.regex": "Regex /{value}/",
-        # Home
-        "home.title": "Startseite",
-        "home.welcome": "Willkommen, {username}!",
-        "home.empty": (
-            "Hier erscheint bald dein gefilterter Abo-Feed. "
-            "Abos und Feed folgen in der nächsten Ausbaustufe."
+        # Feed
+        "nav.feed": "Feed",
+        "nav.later": "Später",
+        "nav.hidden": "Ausgeblendet",
+        "feed.title_feed": "Feed",
+        "feed.title_later": "Später ansehen",
+        "feed.title_hidden": "Ausgeblendet",
+        "feed.filter_show": "Anzeigen",
+        "feed.unwatched": "Ungesehen",
+        "feed.all": "Alle",
+        "feed.all_channels": "Alle Kanäle",
+        "feed.length": "Länge",
+        "feed.length_any": "Beliebig",
+        "feed.length_short": "unter 20 min",
+        "feed.length_medium": "20–60 min",
+        "feed.length_long": "über 60 min",
+        "feed.apply": "Filtern",
+        "feed.more": "Mehr laden",
+        "feed.reason": "Grund",
+        "feed.no_subscriptions": "Du hast noch keine Kanäle abonniert.",
+        "feed.add_channels": "Kanäle hinzufügen",
+        "feed.empty_feed": "Keine neuen Videos. Schön ruhig hier.",
+        "feed.empty_later": "Deine „Später ansehen“-Liste ist leer.",
+        "feed.empty_hidden": "Nichts ausgeblendet.",
+        "feed.no_api_key": (
+            "Ohne YouTube-API-Schlüssel kennt kurator keine Videolängen. Shorts werden trotzdem "
+            "über die offizielle Playlist ohne Shorts ferngehalten; Längenfilter und "
+            "Dauer-Regeln greifen aber nicht."
         ),
+        "reason.manual": "manuell ausgeblendet",
+        "reason.muted": "Kanal stummgeschaltet",
+        "reason.live": "Livestream",
+        "reason.premiere": "Premiere bzw. angekündigter Livestream",
+        "reason.rule": "Regel",
+        "video.live": "LIVE",
+        "video.upcoming": "BALD",
+        "action.watched": "Gesehen",
+        "action.watched_state": "Gesehen",
+        "action.unwatched": "Als ungesehen markieren",
+        "action.later": "Später",
+        "action.later_state": "Später",
+        "action.unlater": "Von „Später“ entfernen",
+        "action.like": "Gefällt mir",
+        "action.dislike": "Gefällt mir nicht",
+        "action.hide": "Ausblenden",
+        "action.unhide": "Einblenden",
+        "action.disable_rule": "Regel deaktivieren",
+        "time.minutes": "vor {n} min",
+        "time.hours": "vor {n} Std.",
+        "time.days": "vor {n} Tagen",
+        "time.months": "vor {n} Monaten",
+        "time.years": "vor {n} Jahren",
         # Account
         "account.title": "Mein Konto",
         "account.change_password": "Passwort ändern",

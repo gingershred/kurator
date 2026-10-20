@@ -26,8 +26,8 @@ from app.web.routes import (
     admin_users,
     auth,
     channels,
+    feed,
     health,
-    home,
     oidc,
     thumbs,
 )
@@ -131,7 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(health.router)
     app.include_router(auth.router)
-    app.include_router(home.router)
+    app.include_router(feed.router)
     app.include_router(account.router)
     app.include_router(admin_users.router)
     app.include_router(admin_status.router)

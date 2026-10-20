@@ -27,7 +27,7 @@ def test_login_and_logout(client: TestClient, alice: User) -> None:
     assert response.headers["location"] == "/"
     page = client.get("/")
     assert page.status_code == 200
-    assert "Willkommen, alice!" in page.text
+    assert "Konto (alice)" in page.text
 
     response = post(client, "/logout", follow_redirects=False)
     assert response.status_code == 303

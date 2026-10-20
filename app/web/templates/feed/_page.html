@@ -1,0 +1,6 @@
+{% for item in page.items %}{% include "feed/_card.html" %}{% endfor %}
+{% if next_url %}
+<div class="more" id="more">
+  <button class="secondary" hx-get="{{ next_url }}" hx-target="#more" hx-swap="outerHTML" hx-trigger="click, revealed">{{ t("feed.more") }}</button>
+</div>
+{% endif %}

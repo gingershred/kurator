@@ -33,7 +33,7 @@ def test_admin_creates_second_user_who_can_log_in(app: FastAPI, admin_client: Te
 
     carol = new_client(app)
     assert login(carol, "carol", "carol-password").status_code == 303
-    assert "Willkommen, carol!" in carol.get("/").text
+    assert "Konto (carol)" in carol.get("/").text
     # Both sessions stay valid independently.
     assert admin_client.get("/admin/users").status_code == 200
 
