@@ -72,6 +72,8 @@ def test_scheduler_has_tasks(worker: Worker) -> None:
         "housekeeping",
         "poll_feeds",
         "enrich",
+        "downloads",
+        "cleanup_downloads",
     }
 
 
