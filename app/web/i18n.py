@@ -73,6 +73,45 @@ MESSAGES: dict[str, dict[str, str]] = {
         "channels.unmute": "Aktivieren",
         "channels.remove": "Entfernen",
         "channels.empty": "Du hast noch keine Kanäle abonniert.",
+        # Settings & rules
+        "nav.settings": "Einstellungen",
+        "settings.title": "Einstellungen",
+        "settings.feed": "Feed",
+        "settings.show_livestreams": "Livestreams anzeigen",
+        "settings.show_premieres": "Premieren und angekündigte Livestreams anzeigen",
+        "settings.saved": "Einstellungen gespeichert.",
+        "settings.rules": "Filterregeln",
+        "settings.rules_hint": (
+            "Videos, auf die eine aktive Regel zutrifft, landen unter „Ausgeblendet“. "
+            "Deaktivieren oder Löschen macht das sofort rückgängig."
+        ),
+        "settings.rule": "Regel",
+        "settings.rule_new": "Neue Regel",
+        "settings.rule_type": "Art",
+        "settings.rule_value": "Wert",
+        "settings.rule_channel": "Kanal (nur für „Kanal ausschließen“)",
+        "settings.rule_value_hint": (
+            "Stichwörter ohne Beachtung von Groß-/Kleinschreibung; Dauer in Minuten; "
+            "Regex nach Python-Syntax, durchsucht Titel und Beschreibung."
+        ),
+        "settings.rule_add": "Regel hinzufügen",
+        "settings.rule_added": "Regel hinzugefügt.",
+        "settings.rule_deleted": "Regel gelöscht.",
+        "settings.rule_enable": "Aktivieren",
+        "settings.rule_disable": "Deaktivieren",
+        "settings.rule_delete": "Löschen",
+        "rule.type.keyword_title": "Stichwort im Titel",
+        "rule.type.keyword_desc": "Stichwort in der Beschreibung",
+        "rule.type.channel": "Kanal ausschließen",
+        "rule.type.min_duration": "Mindestdauer (Minuten)",
+        "rule.type.max_duration": "Höchstdauer (Minuten)",
+        "rule.type.regex": "Regulärer Ausdruck",
+        "rule.label.keyword_title": "Stichwort „{value}“ im Titel",
+        "rule.label.keyword_desc": "Stichwort „{value}“ in der Beschreibung",
+        "rule.label.channel": "Kanal „{value}“",
+        "rule.label.min_duration": "kürzer als {minutes} min",
+        "rule.label.max_duration": "länger als {minutes} min",
+        "rule.label.regex": "Regex /{value}/",
         # Home
         "home.title": "Startseite",
         "home.welcome": "Willkommen, {username}!",
@@ -199,6 +238,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "error.import_too_large": "Die Datei ist zu groß (höchstens 2 MB).",
         "error.import_empty": "In der Datei wurden keine Kanäle gefunden.",
+        "error.rule_type_invalid": "Unbekannte Regelart.",
+        "error.rule_value_empty": "Bitte einen Wert angeben.",
+        "error.rule_value_too_long": "Der Wert ist zu lang (höchstens 200 Zeichen).",
+        "error.rule_regex_invalid": "Der reguläre Ausdruck ist ungültig.",
+        "error.rule_duration_invalid": "Bitte eine Dauer in ganzen Minuten (1–1440) angeben.",
+        "error.rule_channel_unknown": "Diesen Kanal hast du nicht abonniert.",
         "error.channel_input_invalid": (
             "Das sieht nicht nach einem Kanal aus. Erlaubt sind Kanal-ID (UC…), @Handle oder "
             "eine Kanal-URL."

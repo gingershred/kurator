@@ -31,6 +31,9 @@ from app.web.routes import (
     oidc,
     thumbs,
 )
+from app.web.routes import (
+    settings as settings_routes,
+)
 from app.web.templating import render
 
 log = logging.getLogger(__name__)
@@ -135,4 +138,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(oidc.router)
     app.include_router(thumbs.router)
     app.include_router(channels.router)
+    app.include_router(settings_routes.router)
     return app
