@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import User
 from app.services import users
-from tests.conftest import PASSWORD, login, new_client, post
+from tests.conftest import PASSWORD, csrf_token, login, new_client, post
 
 
 def test_account_page_shows_only_own_data(app: FastAPI, alice: User, bob: User) -> None:
@@ -77,3 +77,73 @@ def test_forged_session_of_other_user_rejected(
     attacker = TestClient(alice_client.app)
     attacker.cookies.set("kurator_session", forged)
     assert attacker.get("/", follow_redirects=False).status_code == 303
+
+
+# --- Phase 1: feed data ---------------------------------------------------------------------
+
+
+def test_bob_sees_and_changes_nothing_of_alice_feed_data(
+    app: FastAPI, alice: User, bob: User, db: Session
+) -> None:
+    from sqlalchemy import select
+
+    from app.models import FilterRule, Subscription, UserVideoState, WatchEvent
+    from app.services import filters, video_state
+    from app.services import settings as user_settings
+    from tests.factories import add_channel, add_video, subscribe, video_id
+
+    secret_channel = add_channel(db, 1, title="Alices Geheimkanal")
+    sub = subscribe(db, alice.id, secret_channel)
+    video = add_video(db, secret_channel, 1, title="Alices Lieblingsvideo")
+    video_state.set_watch_later(db, alice, video, True)
+    video_state.set_rating(db, alice, video, 1)
+    rule = filters.create_rule(db, alice, "keyword_title", "AlicesStichwort")
+    user_settings.set_user_setting(db, alice.id, "show_livestreams", True)
+    alice_client = new_client(app)
+    login(alice_client, "alice")
+    token = csrf_token(alice_client, "/")
+    alice_client.post(
+        f"/videos/{video_id(1)}/events",
+        json={"event": "progress", "position": 120},
+        headers={"X-CSRF-Token": token},
+    )
+
+    bob_client = new_client(app)
+    login(bob_client, "bob")
+
+    # Reading: none of Alice's data shows up on any of Bob's pages.
+    for path in ("/", "/?all=1", "/later", "/later?all=1", "/hidden", "/channels", "/settings"):
+        page = bob_client.get(path).text
+        for secret in ("Alices Geheimkanal", "Alices Lieblingsvideo", "AlicesStichwort"):
+            assert secret not in page, (path, secret)
+    assert bob_client.get(f"/videos/{video_id(1)}").status_code == 404
+
+    # Writing: every id-based route rejects Alice's objects.
+    bob_token = csrf_token(bob_client, "/")
+    for path in (
+        f"/channels/{sub.id}/mute",
+        f"/channels/{sub.id}/unmute",
+        f"/channels/{sub.id}/remove",
+        f"/settings/rules/{rule.id}/toggle",
+        f"/settings/rules/{rule.id}/delete",
+        *(f"/videos/{video_id(1)}/{a}" for a in ("watched", "hide", "later", "unlater", "rate")),
+    ):
+        assert post(bob_client, path).status_code == 404, path
+    response = bob_client.post(
+        f"/videos/{video_id(1)}/events",
+        json={"event": "progress", "position": 999},
+        headers={"X-CSRF-Token": bob_token},
+    )
+    assert response.status_code == 404
+    post(bob_client, "/settings", {})
+
+    # Alice's data is untouched.
+    db.expire_all()
+    [alice_sub] = db.scalars(select(Subscription).where(Subscription.user_id == alice.id)).all()
+    assert alice_sub.status == "active"
+    assert db.get(FilterRule, rule.id) is not None
+    state = db.get(UserVideoState, (alice.id, video.id))
+    assert state is not None and state.watch_later_at and state.rating == 1
+    assert state.progress_seconds == 120 and state.watched_at is None
+    assert db.scalars(select(WatchEvent).where(WatchEvent.user_id == bob.id)).all() == []
+    assert user_settings.get_user_setting(db, alice.id, "show_livestreams") is True

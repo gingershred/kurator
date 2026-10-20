@@ -1,6 +1,7 @@
 import re
 
 import pytest
+import respx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -246,3 +247,41 @@ def test_user_isolation(app: FastAPI, db: Session, alice: User, bob: User, setup
     db.expire_all()
     state = video_state.get_state(db, alice, video)
     assert state is not None and state.hidden_at is not None
+
+
+@respx.mock
+def test_shorts_heavy_channel_end_to_end(
+    settings: Settings, engine: object, db: Session, session_factory: object, alice: User
+) -> None:
+    """Even if Shorts slipped into the uploads feed, none reaches the feed (API fallback)."""
+    import asyncio
+
+    import httpx
+
+    from app.services import ingest
+    from app.youtube.api import API_BASE
+    from app.youtube.rss import FEED_URL
+    from tests.factories import api_video, channel_id, feed_xml, rss_router
+
+    api_settings = settings.model_copy(update={"youtube_api_key": SecretStr("AIza-x")})
+    channel = add_channel(db, 1)
+    subscribe(db, alice.id, channel)
+    entries = [(video_id(n), f"Clip {n}", BASE_TIME) for n in range(15)]
+    respx.get(FEED_URL).mock(
+        side_effect=rss_router({channel_id(1): feed_xml(channel_id(1), entries)})
+    )
+    durations = {video_id(n): (40 + n if n % 5 else 1200) for n in range(15)}  # 3 long, 12 Shorts
+
+    def videos(request: httpx.Request) -> httpx.Response:
+        ids = request.url.params["id"].split(",")
+        return httpx.Response(200, json={"items": [api_video(i, durations[i]) for i in ids]})
+
+    respx.get(f"{API_BASE}/videos").mock(side_effect=videos)
+    respx.get(host__regex=r".*\.ytimg\.com").respond(status_code=404)
+
+    with TestClient(create_app(api_settings)) as client:
+        login(client, "alice")
+        assert shown(client) == []  # fetched but not yet enriched: nothing shown
+        asyncio.run(ingest.poll_and_enrich(session_factory, api_settings))  # type: ignore[arg-type]
+        visible = set(shown(client, "/?all=1")) | set(shown(client, "/hidden"))
+        assert visible == {video_id(0), video_id(5), video_id(10)}
