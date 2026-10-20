@@ -8,12 +8,6 @@ from app.config import Settings
 SECRET = "x" * 32
 
 
-@pytest.fixture(autouse=True)
-def _isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    # Never pick up a developer's .env during tests.
-    monkeypatch.chdir(tmp_path)
-
-
 def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("KURATOR_SECRET_KEY", SECRET)
     settings = Settings()
