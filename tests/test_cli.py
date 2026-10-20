@@ -119,3 +119,11 @@ def test_unwritable_data_dir(
     bad = settings.model_copy(update={"data_dir": blocker / "data"})
     assert cli.main(["create-user", "x1", "--password-stdin"], settings=bad) == 2
     assert "nicht beschreibbar" in capsys.readouterr().err
+
+
+def test_backup_command(settings: Settings, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["backup"], settings=settings) == 1
+    cli.main(["migrate"], settings=settings)
+    assert cli.main(["backup"], settings=settings) == 0
+    assert "manual" in capsys.readouterr().out
+    assert len(list(settings.backups_dir.glob("kurator-*-manual.db"))) == 1

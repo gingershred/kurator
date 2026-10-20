@@ -64,6 +64,16 @@ def cmd_migrate(settings: Settings, _args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_backup(settings: Settings, _args: argparse.Namespace) -> int:
+    from app.migrate import backup_database
+
+    if not settings.db_path.exists():
+        print(f"Keine Datenbank unter {settings.db_path} gefunden.", file=sys.stderr)
+        return 1
+    print(f"Backup: {backup_database(settings, 'manual')}")
+    return 0
+
+
 def cmd_create_user(settings: Settings, args: argparse.Namespace) -> int:
     _prepare(settings)
     password = _read_password(args.password_stdin)
@@ -174,6 +184,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("migrate", help="Datenbank sichern und migrieren")
     p.set_defaults(func=cmd_migrate)
+
+    p = sub.add_parser("backup", help="Datenbank im laufenden Betrieb sichern")
+    p.set_defaults(func=cmd_backup)
 
     p = sub.add_parser("create-user", help="Nutzer anlegen")
     p.add_argument("username")
