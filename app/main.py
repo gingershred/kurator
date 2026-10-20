@@ -30,6 +30,7 @@ from app.web.routes import (
     health,
     oidc,
     thumbs,
+    videos,
 )
 from app.web.routes import (
     settings as settings_routes,
@@ -131,6 +132,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(health.router)
     app.include_router(auth.router)
+    # Before the feed router: /videos/{id}/events must win over /videos/{id}/{action}.
+    app.include_router(videos.router)
     app.include_router(feed.router)
     app.include_router(account.router)
     app.include_router(admin_users.router)

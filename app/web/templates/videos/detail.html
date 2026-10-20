@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ item.video.title }}{% endblock %}
+{% block content %}
+{%- set v = item.video -%}
+<div class="watch">
+  <div class="player-wrap">
+    <div id="player" data-video="{{ playback.video_id }}" data-start="{{ playback.start_seconds }}" data-host="https://www.youtube-nocookie.com"></div>
+  </div>
+  <div class="watch-meta">
+    <h1>{{ v.title }}</h1>
+    <p class="muted">
+      {{ item.channel.title }} · {{ v.published_at | dt(tz) }}{% if v.duration_seconds %} · {{ v.duration_seconds | duration }}{% endif %}
+      {% if playback.start_seconds %} · {{ t("video.resume", position=playback.start_seconds | duration) }}{% endif %}
+    </p>
+    <div class="row">
+      {% with view="detail" %}{% include "videos/_actions.html" %}{% endwith %}
+      <a class="button secondary" href="https://www.youtube.com/watch?v={{ v.youtube_video_id }}" rel="noopener noreferrer" target="_blank">{{ t("video.open_youtube") }}</a>
+    </div>
+    {% if v.description %}
+    <details class="description" open>
+      <summary>{{ t("video.description") }}</summary>
+      <p>{{ v.description }}</p>
+    </details>
+    {% endif %}
+  </div>
+</div>
+<script src="{{ url_for('static', path='kurator.js') }}" defer></script>
+{% endblock %}

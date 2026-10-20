@@ -6,9 +6,11 @@ from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from app.db import utcnow
-from app.models import Subscription, User, UserVideoState, Video
+from app.models import Subscription, User, UserVideoState, Video, WatchEvent, WatchEventType
 
 MANUAL = "manual"
+WATCHED_AT_FRACTION = 0.9
+MAX_POSITION = 24 * 3600
 
 
 def video_for_user(db: Session, user: User, youtube_video_id: str) -> Video | None:
@@ -71,5 +73,27 @@ def set_rating(db: Session, user: User, video: Video, rating: int) -> UserVideoS
         raise ValueError("rating must be -1, 0 or 1")
     state = _state(db, user, video)
     state.rating = rating
+    db.commit()
+    return state
+
+
+def record_event(
+    db: Session, user: User, video: Video, event: WatchEventType, position: int
+) -> UserVideoState:
+    """Store a raw player event and update progress; from 90 % on the video counts as watched."""
+    limit = video.duration_seconds or MAX_POSITION
+    position = max(0, min(int(position), limit))
+    db.add(
+        WatchEvent(user_id=user.id, video_id=video.id, event=event.value, position_seconds=position)
+    )
+    state = _state(db, user, video)
+    if event != WatchEventType.PLAY or position > 0:
+        state.progress_seconds = position
+    finished = event == WatchEventType.ENDED or (
+        video.duration_seconds is not None
+        and position >= video.duration_seconds * WATCHED_AT_FRACTION
+    )
+    if finished and state.watched_at is None:
+        state.watched_at = utcnow()
     db.commit()
     return state

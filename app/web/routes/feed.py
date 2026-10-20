@@ -149,8 +149,9 @@ def video_action(
     sub = db.query(Subscription).filter_by(user_id=user.id, channel_id=video.channel_id).first()
     assert channel is not None  # noqa: S101  (FK)
     item = FeedItem(video, channel, sub, video_state.get_state(db, user, video))
+    template = "videos/_actions.html" if view == "detail" else "feed/_card.html"
     return render(
         request,
-        "feed/_card.html",
+        template,
         {"item": item, "view": view, "channel_titles": filters.channel_titles(db, user)},
     )

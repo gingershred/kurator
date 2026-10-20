@@ -126,3 +126,12 @@ button.icon, .icon.button { background: transparent; color: var(--muted); border
 button.icon:hover, .icon.button:hover { color: var(--text); border-color: var(--muted); }
 button.icon.active { color: var(--accent); border-color: var(--accent); }
 .more { grid-column: 1 / -1; text-align: center; padding: 1rem; }
+
+/* Video page */
+.watch { max-width: 1100px; margin: 0 auto; }
+.player-wrap { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: var(--radius);
+               overflow: hidden; }
+.player-wrap iframe, .player-wrap #player { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.watch-meta h1 { margin-top: 1rem; font-size: 1.35rem; }
+.detail-actions .video-actions { padding: 0; }
+.description p { white-space: pre-wrap; overflow-wrap: anywhere; }
