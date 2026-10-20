@@ -121,6 +121,39 @@ Tastaturkürzel im Feed: `j`/`k` nächstes/vorheriges Video, `Enter` öffnen, `w
 `h` ausblenden, `l` später ansehen, `+`/`-` bewerten, `?` Hilfe. Ab 90 % Wiedergabe gilt ein
 Video als gesehen; beim nächsten Öffnen geht es an der letzten Stelle weiter.
 
+### Downloads (optional)
+
+Statt über den eingebetteten Player kann kurator Videos auch herunterladen und lokal
+abspielen (mit Spulen, Untertiteln und gespeichertem Fortschritt). Das Image bringt dafür
+yt-dlp, ffmpeg und Deno mit; bei jedem Image-Build wird die neueste stabile yt-dlp-Version
+installiert, der wöchentliche Rebuild hält sie aktuell.
+
+1. Als Admin unter **Downloads** „Downloads aktiviert“ setzen (Startwert aus
+   `DOWNLOADS_ENABLED`), dort auch maximale Qualität, Speicherlimit, Aufbewahrung und Anzahl
+   gleichzeitiger Downloads einstellen.
+2. Unter **Nutzer** die Nutzer freischalten, die herunterladen dürfen (Admins dürfen immer).
+3. Freigeschaltete Nutzer sehen auf der Videoseite „Herunterladen“ bzw. „Nur Audio
+   herunterladen“, unter **Kanäle** „Auto-Download“ (lädt ab dann neue Videos des Kanals
+   automatisch) und unter **Einstellungen** die Standard-Wiedergabe.
+
+Gut zu wissen:
+
+- Dateien liegen unter `data/media/<Kanal-ID>/`. Lädt ein zweiter Nutzer dasselbe Video,
+  wird es nicht erneut heruntergeladen.
+- Standardformat ist MP4 mit H.264/AAC (spielt auch auf iPhone/iPad), höchstens in der
+  eingestellten Qualität; Untertitel (falls vorhanden) in Deutsch und Englisch.
+- Aufräumen: Nach „gesehen“ durch alle, die das Video angefordert haben, wird die Datei nach
+  der Aufbewahrungsdauer gelöscht. Wird das Speicherlimit überschritten, gehen zuerst schon
+  gesehene, dann die ältesten Downloads – nie eine Datei, die gerade abgespielt wird. Ist
+  nichts mehr zu löschen, warten neue Downloads, bis wieder Platz ist.
+- Schlägt ein Download fehl, versucht kurator es bis zu dreimal. Die Seite **Downloads**
+  zeigt den Grund. „YouTube verlangt eine Bot-Prüfung“ tritt vor allem auf, wenn kurator
+  auf einem Server im Rechenzentrum oder hinter einem VPN läuft; im Heimnetz mit normaler
+  Internetverbindung kommt das selten vor. Der eingebettete Player funktioniert in jedem
+  Fall weiter.
+- Mit Downloads braucht das Image mehr Platz (ffmpeg und Deno), auch wenn die Funktion
+  ausgeschaltet ist.
+
 ## Updates
 
 kurator-Updates bestehen nur aus einem neuen Image; alle Daten liegen in `./data`.
@@ -237,6 +270,9 @@ docker compose logs -f worker
 - **Zu viele Fehlversuche beim Login** – nach 5 falschen Passwörtern ist die Anmeldung für
   15 Minuten gesperrt (oder bis zum Neustart von `web`).
 - **Passwort vergessen** – `docker compose exec web python -m app.cli reset-password <name>`
+- **Download „YouTube hat vermutlich etwas geändert“** – meist hilft ein aktuelles Image
+  (`docker compose pull && docker compose up -d`), weil es eine neuere yt-dlp-Version enthält.
+  Die Seite **Downloads** zeigt die installierte Version.
 - **Kanäle mit Fehlern / „RSS gestört“** – meist eine vorübergehende Störung bei YouTube.
   Mit API-Schlüssel springt der Ersatzabruf ein. Kanäle, die laut RSS und API nicht mehr
   existieren, werden als „existiert nicht mehr“ markiert und nur noch wöchentlich geprüft.
