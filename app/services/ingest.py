@@ -20,7 +20,14 @@ from app.config import Settings
 from app.db import utcnow
 from app.models import Channel, LiveStatus, Subscription, SubscriptionStatus, Video
 from app.youtube import quota
-from app.youtube.api import ApiError, ApiUnavailable, QuotaExhausted, VideoInfo, YouTubeApi
+from app.youtube.api import (
+    ApiError,
+    ApiUnavailable,
+    PlaylistNotFound,
+    QuotaExhausted,
+    VideoInfo,
+    YouTubeApi,
+)
 from app.youtube.ids import uploads_playlist_id
 from app.youtube.rss import ChannelFeed, FeedError, fetch_uploads
 from app.youtube.thumbs import ThumbResult, cache_pending
@@ -29,6 +36,8 @@ log = logging.getLogger(__name__)
 
 FETCH_CONCURRENCY = 8
 RECHECK_LIVE_AFTER = timedelta(minutes=30)
+GONE_RECHECK_AFTER = timedelta(days=7)
+GONE_MESSAGE = "channel no longer exists (RSS and API: not found)"
 MAX_ERROR_LENGTH = 500
 
 
@@ -64,12 +73,17 @@ class EnrichResult:
     errors: list[str] = field(default_factory=list)
 
 
-def channels_to_poll(db: Session) -> list[int]:
-    """Channels with at least one active (not muted) subscription."""
+def channels_to_poll(db: Session, now: datetime | None = None) -> list[int]:
+    """Channels with at least one active (not muted) subscription. Channels that no longer
+    exist are only checked again once a week."""
+    now = now or utcnow()
     stmt = (
         select(Channel.id)
         .join(Subscription, Subscription.channel_id == Channel.id)
-        .where(Subscription.status == SubscriptionStatus.ACTIVE.value)
+        .where(
+            Subscription.status == SubscriptionStatus.ACTIVE.value,
+            or_(Channel.gone_at.is_(None), Channel.gone_at <= now - GONE_RECHECK_AFTER),
+        )
         .distinct()
         .order_by(Channel.id)
     )
@@ -109,6 +123,7 @@ def store_feed(db: Session, channel: Channel, feed: ChannelFeed, now: datetime) 
     channel.last_success_at = now
     channel.last_error = None
     channel.error_count = 0
+    channel.gone_at = None
     db.commit()
     return new
 
@@ -125,6 +140,16 @@ def _record_error(session_factory: sessionmaker[Session], channel_id: int, error
         channel = db.get(Channel, channel_id)
         if channel is not None:
             record_channel_error(db, channel, error, utcnow())
+
+
+def _mark_gone(session_factory: sessionmaker[Session], channel_id: int) -> None:
+    with session_factory() as db:
+        channel = db.get(Channel, channel_id)
+        if channel is not None:
+            log.info("channel %s no longer exists", channel.youtube_channel_id)
+            record_channel_error(db, channel, GONE_MESSAGE, utcnow())
+            channel.gone_at = utcnow()  # last confirmation; the weekly recheck counts from here
+            db.commit()
 
 
 async def _fetch_via_api(
@@ -150,6 +175,12 @@ async def _fetch_via_api(
         db.commit()
     try:
         entries = await fallback.api.playlist_items(uploads_playlist_id(youtube_channel_id))
+    except PlaylistNotFound:
+        if rss_error.not_found:
+            _mark_gone(session_factory, channel_id)
+        else:
+            _record_error(session_factory, channel_id, f"{rss_error}; API: playlist not found")
+        return None
     except (QuotaExhausted, ApiUnavailable, ApiError) as exc:
         _record_error(session_factory, channel_id, f"{rss_error}; API fallback: {exc}")
         return None

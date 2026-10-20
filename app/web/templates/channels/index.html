@@ -47,7 +47,10 @@
         </td>
         <td>{{ t("channels.status_" ~ sub.status) }}</td>
         <td>{{ channel.last_success_at | dt(tz) }}</td>
-        <td>{% if channel.last_error %}<span class="badge badge-failed" title="{{ channel.last_error }}">{{ t("channels.error_count", count=channel.error_count) }}</span>{% endif %}</td>
+        <td>
+          {% if channel.gone_at %}<span class="badge badge-failed" title="{{ channel.last_error }}">{{ t("channels.gone") }}</span>
+          {% elif channel.last_error %}<span class="badge badge-failed" title="{{ channel.last_error }}">{{ t("channels.error_count", count=channel.error_count) }}</span>{% endif %}
+        </td>
         <td class="actions">
           {% if sub.status == "active" %}
           <form method="post" action="/channels/{{ sub.id }}/mute" class="inline">

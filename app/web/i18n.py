@@ -78,6 +78,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "channels.last_fetch": "Zuletzt abgerufen",
         "channels.error": "Fehler",
         "channels.error_count": "{count}× fehlgeschlagen",
+        "channels.gone": "existiert nicht mehr",
         "channels.mute": "Stummschalten",
         "channels.unmute": "Aktivieren",
         "channels.remove": "Entfernen",

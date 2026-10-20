@@ -5,6 +5,7 @@ from datetime import timedelta
 import httpx
 import pytest
 import respx
+from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
@@ -405,3 +406,85 @@ async def test_many_channels_with_real_suspension_do_not_exhaust_the_pool(
             ingest.poll_channels(session_factory, client, [c.id for c in channels]), timeout=20
         )
     assert (result.ok, result.failed) == (60, 0)
+
+
+# --- Channels that no longer exist ----------------------------------------------------------
+
+
+async def _poll_once(
+    session_factory: sessionmaker[Session], settings: Settings, channel: Channel
+) -> ingest.PollResult:
+    async with httpx.AsyncClient() as client:
+        api = YouTubeApi(settings, session_factory, client)
+        return await ingest.poll_channels(
+            session_factory, client, [channel.id], fallback=fallback_for(api, settings, 0)
+        )
+
+
+@respx.mock
+async def test_channel_gone_when_rss_and_api_say_not_found(
+    db: Session, session_factory: sessionmaker[Session], api_settings: Settings, alice: User
+) -> None:
+    channel = add_channel(db, 1)
+    subscribe(db, alice.id, channel)
+    respx.get(FEED_URL).respond(status_code=404)
+    respx.get(f"{API_BASE}/playlistItems").respond(
+        status_code=404, json={"error": {"errors": [{"reason": "playlistNotFound"}]}}
+    )
+    await _poll_once(session_factory, api_settings, channel)
+    db.refresh(channel)
+    assert channel.gone_at is not None
+    assert ingest.channels_to_poll(db) == []
+    assert ingest.channels_to_poll(db, now=utcnow() + timedelta(days=8)) == [channel.id]
+
+    # It came back (e.g. was only private for a while): the flag is cleared.
+    respx.get(FEED_URL).respond(content=feed_xml(channel_id(1), []))
+    await _poll_once(session_factory, api_settings, channel)
+    db.refresh(channel)
+    assert channel.gone_at is None and channel.error_count == 0
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    ("rss_status", "api_response"),
+    [
+        (404, {"json": {"items": []}}),  # RSS broken, but the channel exists per API
+        (
+            500,
+            {"status_code": 404, "json": {"error": {"errors": [{"reason": "playlistNotFound"}]}}},
+        ),
+    ],
+)
+async def test_channel_not_gone_unless_both_sources_agree(
+    db: Session,
+    session_factory: sessionmaker[Session],
+    api_settings: Settings,
+    rss_status: int,
+    api_response: dict[str, object],
+) -> None:
+    channel = add_channel(db, 1)
+    respx.get(FEED_URL).respond(status_code=rss_status)
+    respx.get(f"{API_BASE}/playlistItems").respond(**api_response)  # type: ignore[arg-type]
+    await _poll_once(session_factory, api_settings, channel)
+    db.refresh(channel)
+    assert channel.gone_at is None
+
+
+@respx.mock
+async def test_channel_not_gone_without_api_key(
+    db: Session, session_factory: sessionmaker[Session], settings: Settings
+) -> None:
+    channel = add_channel(db, 1)
+    respx.get(FEED_URL).respond(status_code=404)
+    result = await _poll_once(session_factory, settings, channel)
+    db.refresh(channel)
+    assert result.failed == 1 and channel.gone_at is None and channel.error_count == 1
+
+
+def test_gone_badge_in_channel_list(alice_client: TestClient, db: Session, alice: User) -> None:
+    channel = add_channel(db, 1, title="Verschwunden")
+    subscribe(db, alice.id, channel)
+    channel.gone_at = utcnow()
+    channel.last_error = ingest.GONE_MESSAGE
+    db.commit()
+    assert "existiert nicht mehr" in alice_client.get("/channels").text
