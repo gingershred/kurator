@@ -158,6 +158,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason.live": "Livestream",
         "reason.premiere": "Premiere bzw. angekündigter Livestream",
         "reason.rule": "Regel",
+        "download.kind_video": "Video",
+        "download.kind_audio": "Nur Audio",
+        "download.start_video": "Herunterladen",
+        "download.start_audio": "Nur Audio herunterladen",
+        "download.queued": "wartet",
+        "download.running": "lädt {percent} %",
+        "download.done": "heruntergeladen",
+        "download.failed": "Fehler",
+        "download.retry": "Erneut versuchen",
+        "download.remove": "Download entfernen",
+        "download.hint_outdated": (
+            "YouTube hat vermutlich etwas geändert; ein aktuelles kurator-Image "
+            "(neueres yt-dlp) hilft meist"
+        ),
+        "download.hint_unavailable": "Video ist privat, gelöscht oder nur für Mitglieder",
+        "download.hint_storage_full": "Speicherlimit erreicht",
         "video.resume": "weiter bei {position}",
         "video.open_youtube": "Auf YouTube öffnen",
         "video.description": "Beschreibung",
@@ -311,6 +327,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "error.import_too_large": "Die Datei ist zu groß (höchstens 2 MB).",
         "error.import_empty": "In der Datei wurden keine Kanäle gefunden.",
+        "error.downloads_not_allowed": "Downloads sind für dich nicht freigeschaltet.",
+        "error.download_not_possible": (
+            "Dieses Video lässt sich (noch) nicht herunterladen, z. B. weil es live oder "
+            "angekündigt ist."
+        ),
         "error.rule_type_invalid": "Unbekannte Regelart.",
         "error.rule_value_empty": "Bitte einen Wert angeben.",
         "error.rule_value_too_long": "Der Wert ist zu lang (höchstens 200 Zeichen).",

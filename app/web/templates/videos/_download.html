@@ -1,0 +1,28 @@
+{# Download controls for one video; polls while something is in progress. #}
+{%- set vid = video.youtube_video_id -%}
+{%- set busy = (dl.video and dl.video.status in ("queued", "running")) or (dl.audio and dl.audio.status in ("queued", "running")) -%}
+<div class="downloads" id="downloads-{{ vid }}"
+     {% if busy %}hx-get="/videos/{{ vid }}/downloads" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% for kind in ("video", "audio") %}
+  {%- set d = dl[kind] -%}
+  {%- set mine = kind in dl.requested -%}
+  <div class="download-row">
+    <span class="download-kind">{{ t("download.kind_" ~ kind) }}:</span>
+    {% if d and mine and d.status == "done" %}
+      <span class="badge">{{ t("download.done") }}{% if d.height %} · {{ d.height }}p{% endif %} · {{ (d.size_bytes / 1048576) | round(0) | int }} MB</span>
+      <button class="icon" hx-post="/videos/{{ vid }}/download/{{ kind }}/remove" hx-target="#downloads-{{ vid }}" hx-swap="outerHTML">{{ t("download.remove") }}</button>
+    {% elif d and mine and d.status == "running" %}
+      <span class="badge">{{ t("download.running", percent=d.progress) }}</span>
+      <progress value="{{ d.progress }}" max="100"></progress>
+    {% elif d and mine and d.status == "queued" %}
+      <span class="badge">{{ t("download.queued") }}{% if d.error_hint == "storage_full" %} – {{ t("download.hint_storage_full") }}{% endif %}</span>
+      <button class="icon" hx-post="/videos/{{ vid }}/download/{{ kind }}/remove" hx-target="#downloads-{{ vid }}" hx-swap="outerHTML">{{ t("common.cancel") }}</button>
+    {% elif d and mine and d.status == "failed" %}
+      <span class="badge badge-failed" title="{{ d.error or '' }}">{{ t("download.failed") }}{% if d.error_hint %} – {{ t("download.hint_" ~ d.error_hint) }}{% endif %}</span>
+      <button class="icon" hx-post="/videos/{{ vid }}/download/{{ kind }}" hx-target="#downloads-{{ vid }}" hx-swap="outerHTML">{{ t("download.retry") }}</button>
+    {% else %}
+      <button class="icon" hx-post="/videos/{{ vid }}/download/{{ kind }}" hx-target="#downloads-{{ vid }}" hx-swap="outerHTML">{{ t("download.start_" ~ kind) }}</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
