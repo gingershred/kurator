@@ -83,6 +83,24 @@ Zielplattform bis einschließlich Phase 5: **Desktop-Browser im Heimnetz/VPN**.
 
 ---
 
+## Phase 1.1 – Robuster Abruf & OPML
+
+**Ziel:** Der Feed bleibt auch bei Störungen des RSS-Endpunkts aktuell (seit Dezember 2025 liefert YouTube dort zeitweise 404/500), und Abos lassen sich mit anderen Tools austauschen.
+
+- Vorübergehende RSS-Fehler (Timeout, 5xx) werden einmal wiederholt
+- RSS-Ersatzabruf über `playlistItems.list` auf die UULF-Playlist (1 Einheit), nur mit API-Schlüssel; höchstens 25 % des Tagesbudgets, Abrufabstand pro Kanal so bemessen, dass selbst ein ganztägiger Ausfall aller Feeds im Rahmen bleibt
+- Kanäle, die laut RSS **und** API nicht mehr existieren, werden markiert und nur noch wöchentlich geprüft
+- Statusseite: RSS-Zustand des letzten Laufs, Ersatzabrufe heute, verschwundene Kanäle
+- OPML-Import (Upload und CLI) und -Export (mit UULF-Feeds)
+
+**Abnahme:**
+- [x] Ein ganztägiger RSS-Ausfall bei 100 Kanälen bleibt innerhalb des Fallback-Anteils (Test)
+- [x] Ohne API-Schlüssel kein Ersatzabruf und keine automatische Markierung als „existiert nicht mehr“
+- [x] OPML aus anderen Tools wird importiert, eigener Export lässt sich wieder importieren
+- [x] Abruf vieler Kanäle blockiert nicht (keine DB-Verbindung über Netzwartezeiten hinweg; Regressionstest)
+
+---
+
 ## Phase 2 – Download-Wiedergabe
 
 **Ziel:** Nutzer können wählen, ob ein Video eingebettet oder als lokal heruntergeladene Datei abgespielt wird.
@@ -99,7 +117,9 @@ Zielplattform bis einschließlich Phase 5: **Desktop-Browser im Heimnetz/VPN**.
 
 **Technik**
 - yt-dlp + ffmpeg im Image; Downloads als Jobs im Worker, Parallelität begrenzt (Standard 1–2)
-- Formatwahl: höchstens `DOWNLOAD_MAX_QUALITY`, bevorzugt browserkompatibel (MP4/H.264+AAC oder WebM/VP9+Opus); Datei, Thumbnail und Metadaten unter `/data/media/<channel_id>/<video_id>.*`
+- Formatwahl: höchstens `DOWNLOAD_MAX_QUALITY`, Standard **MP4/H.264+AAC** (spielt auch auf iPhone/iPad; WebM/VP9 nur, wenn ausdrücklich gewählt); Datei, Thumbnail und Metadaten unter `/data/media/<channel_id>/<video_id>.*`
+- **Nur-Audio-Downloads** (z. B. für Vorträge/Podcasts), abspielbar im selben Player
+- **Untertitel** (falls vorhanden) mit herunterladen und als `<track>` (WebVTT) anbieten
 - Wiedergabe über eigenen Endpunkt mit HTTP-Range-Unterstützung und Rechteprüfung, HTML5-`<video>`; Fortschritt wird genauso gespeichert wie beim eingebetteten Player
 - Geteilte Downloads: lädt Nutzer B ein Video, das Nutzer A schon geladen hat, wird nicht erneut geladen
 - Aufräumjob: löscht Dateien nach Ablauf der Aufbewahrungsdauer (gerechnet ab „gesehen“ durch alle Anfordernden), älteste zuerst bei Überschreitung des Speicherlimits; nie Dateien, die gerade abgespielt werden
@@ -130,6 +150,7 @@ Zielplattform bis einschließlich Phase 5: **Desktop-Browser im Heimnetz/VPN**.
   - Robust: Timeouts, Retries mit Backoff, bei Fehlern Fallback auf reines Embedding-Ranking
   - Aufruf- und Kostenzähler (pro Nutzer) auf der Admin-Statusseite
 - Kaltstart: optionaler Import von `watch-history.json` aus Google Takeout pro Nutzer
+- Optional mit LLM: kurze Zusammenfassung eines Videos aus heruntergeladenen Untertiteln (nur wenn Untertitel aus dem Download-Modul vorliegen; die offizielle API liefert Untertitel fremder Videos nicht)
 
 **Abnahme:**
 - [ ] kurator funktioniert unverändert mit `LLM_ENABLED=false`
@@ -169,9 +190,13 @@ Zielplattform bis einschließlich Phase 5: **Desktop-Browser im Heimnetz/VPN**.
 - SponsorBlock-Integration (Sponsorsegmente überspringen, pro Nutzer abschaltbar; bei Downloads optional herausschneiden)
 - DeArrow-Integration (neutralere Titel/Thumbnails statt Clickbait, pro Nutzer abschaltbar)
 - Suche innerhalb der bereits gespeicherten Videos (lokal, ohne Quota); YouTube-Suche optional mit Budget
-- „Später ansehen“-Liste mit Sortierung
+- „Später ansehen“-Liste mit Sortierung, als Abspielliste mit automatischem Weiterspielen
+- Kanalgruppen/Tags (z. B. „Wissen“, „Musik“) mit Feed-Filter nach Gruppe
+- Optional: Tagesbudget pro Nutzer (Anzahl Videos oder Minuten) und Kinderprofile mit Zeitlimit
 - Export/Import der eigenen Daten (JSON) pro Nutzer, Backup-Download für Admins
 - Benachrichtigung (z. B. ntfy/Gotify) bei neuen Videos ausgewählter Kanäle
+
+Bewusst **nicht** übernommen aus ähnlichen Projekten: Scraping von YouTube-Seiten (z. B. für Videolängen), User-Agent-Tricks für RSS, ein eigener Shorts-Bereich.
 
 ---
 
