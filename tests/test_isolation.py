@@ -147,3 +147,52 @@ def test_bob_sees_and_changes_nothing_of_alice_feed_data(
     assert state.progress_seconds == 120 and state.watched_at is None
     assert db.scalars(select(WatchEvent).where(WatchEvent.user_id == bob.id)).all() == []
     assert user_settings.get_user_setting(db, alice.id, "show_livestreams") is True
+
+
+# --- Phase 2: downloads ---------------------------------------------------------------------
+
+
+def test_bob_can_neither_use_nor_change_alices_downloads(
+    app: FastAPI, alice: User, bob: User, db: Session, settings: object
+) -> None:
+    from app.db import utcnow
+    from app.models import DownloadKind, DownloadRequest
+    from app.playback import downloads
+    from app.services.settings import set_global_setting
+    from tests.factories import add_channel, add_video, subscribe, video_id
+
+    set_global_setting(db, "downloads_enabled", True)
+    alice.can_download = bob.can_download = True
+    db.commit()
+    alice_channel = add_channel(db, 1, title="Alices Kanal")
+    sub = subscribe(db, alice.id, alice_channel)
+    video = add_video(db, alice_channel, 1, title="Alices Download")
+    download = downloads.request_download(db, settings, alice, video, DownloadKind.VIDEO)  # type: ignore[arg-type]
+    root = downloads.media_root(settings) / "UC1"  # type: ignore[arg-type]
+    root.mkdir(parents=True)
+    (root / "v.mp4").write_bytes(b"x" * 10)
+    download.status, download.file_path, download.size_bytes = "done", "UC1/v.mp4", 10
+    download.finished_at = utcnow()
+    db.commit()
+
+    bob_client = new_client(app)
+    login(bob_client, "bob")
+    # Bob follows another channel and may download in general.
+    subscribe(db, bob.id, add_channel(db, 2))
+    for download_id in range(1, download.id + 3):
+        assert bob_client.get(f"/media/{download_id}").status_code == 404
+        assert bob_client.get(f"/media/{download_id}/subs/de.vtt").status_code == 404
+    for path in (
+        f"/videos/{video_id(1)}/download/video/remove",
+        f"/videos/{video_id(1)}/download/video",
+        f"/channels/{sub.id}/auto-download/on",
+    ):
+        assert post(bob_client, path).status_code == 404, path
+    assert bob_client.get(f"/videos/{video_id(1)}/downloads").status_code == 404
+    assert "Alices" not in bob_client.get("/").text
+
+    db.expire_all()
+    assert downloads.requested_by(db, alice, download)
+    assert db.get(DownloadRequest, (bob.id, download.id)) is None
+    assert sub.auto_download_since is None
+    assert download.status == "done"
