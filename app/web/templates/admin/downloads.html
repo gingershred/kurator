@@ -60,7 +60,7 @@
         <td>
           {% if state == "running" %}{{ d.progress }} %
           {% elif state == "failed" %}<span title="{{ d.error or '' }}">{{ t("download.hint_" ~ d.error_hint) if d.error_hint else (d.error or "")[:120] }}</span>
-          {% elif state == "done" %}{{ (d.size_bytes / 1048576) | round(0) | int }} MB{% if d.height %} · {{ d.height }}p{% endif %} · {{ d.finished_at | dt(tz) }}{% if d.last_played_at %} · {{ t("admin.downloads.played", when=d.last_played_at | dt(tz)) }}{% endif %}
+          {% elif state == "done" %}{{ d.size_bytes | filesizeformat }}{% if d.height %} · {{ d.height }}p{% endif %} · {{ d.finished_at | dt(tz) }}{% if d.last_played_at %} · {{ t("admin.downloads.played", when=d.last_played_at | dt(tz)) }}{% endif %}
           {% elif d.error_hint == "storage_full" %}{{ t("download.hint_storage_full") }}{% endif %}
         </td>
         <td>{{ row.requesters }}</td>

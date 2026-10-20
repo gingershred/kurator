@@ -9,7 +9,7 @@
   <div class="download-row">
     <span class="download-kind">{{ t("download.kind_" ~ kind) }}:</span>
     {% if d and mine and d.status == "done" %}
-      <span class="badge">{{ t("download.done") }}{% if d.height %} · {{ d.height }}p{% endif %} · {{ (d.size_bytes / 1048576) | round(0) | int }} MB</span>
+      <span class="badge">{{ t("download.done") }}{% if d.height %} · {{ d.height }}p{% endif %} · {{ d.size_bytes | filesizeformat }}</span>
       <button class="icon" hx-post="/videos/{{ vid }}/download/{{ kind }}/remove" hx-target="#downloads-{{ vid }}" hx-swap="outerHTML">{{ t("download.remove") }}</button>
     {% elif d and mine and d.status == "running" %}
       <span class="badge">{{ t("download.running", percent=d.progress) }}</span>

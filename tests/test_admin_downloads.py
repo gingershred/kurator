@@ -103,3 +103,9 @@ def test_downloads_completely_invisible_when_disabled(
         for word in ("herunterladen", "download", "/media/", "standard-wiedergabe"):
             assert word not in page, (path, word)
     assert "Downloads" not in client.get("/").text  # no admin nav for users either
+
+
+def test_ytdlp_age_warning_threshold() -> None:
+    assert not downloads.Tooling("2026.08.19", 62, True, True).ytdlp_outdated
+    assert downloads.Tooling("2026.01.01", 130, True, True).ytdlp_outdated
+    assert not downloads.Tooling("unknown", None, True, True).ytdlp_outdated

@@ -395,7 +395,8 @@ def queue_auto_downloads(
 # --- Admin --------------------------------------------------------------------------------------
 
 QUALITIES = (360, 480, 720, 1080, 1440, 2160)
-YTDLP_MAX_AGE_DAYS = 60
+# yt-dlp stable releases can be a couple of months apart; warn only when clearly behind.
+YTDLP_MAX_AGE_DAYS = 120
 
 
 @dataclass(frozen=True)
