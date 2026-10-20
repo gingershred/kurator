@@ -46,3 +46,10 @@ def parse_subscriptions_csv(content: bytes | str) -> TakeoutRows:
 def _looks_like_header(cells: list[str]) -> bool:
     joined = " ".join(cells).lower()
     return "id" in joined and ("url" in joined or "title" in joined or "titel" in joined)
+
+
+def parse_subscriptions_file(content: bytes) -> TakeoutRows:
+    """Google Takeout CSV or OPML, detected by content."""
+    from app.importers.opml import looks_like_opml, parse_opml
+
+    return parse_opml(content) if looks_like_opml(content) else parse_subscriptions_csv(content)

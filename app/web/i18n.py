@@ -58,10 +58,12 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Ohne YouTube-API-Schlüssel funktionieren nur Kanal-IDs (UC…), Links mit /channel/ "
             "und der Takeout-Import. @Handles brauchen den Schlüssel."
         ),
-        "channels.import": "Aus Google Takeout importieren",
+        "channels.import": "Importieren (Google Takeout oder OPML)",
+        "channels.export": "Als OPML exportieren",
         "channels.import_hint": (
             "Unter takeout.google.com „YouTube und YouTube Music“ → „Abos“ exportieren und die "
-            "Datei subscriptions.csv hier hochladen."
+            "Datei subscriptions.csv hier hochladen. OPML-Dateien aus RSS-Readern oder anderen "
+            "YouTube-Feed-Tools funktionieren ebenfalls."
         ),
         "channels.import_button": "Importieren",
         "channels.imported": (

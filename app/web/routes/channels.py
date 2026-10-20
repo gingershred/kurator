@@ -5,7 +5,8 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.importers.takeout import MAX_FILE_BYTES, parse_subscriptions_csv
+from app.importers.opml import export_opml
+from app.importers.takeout import MAX_FILE_BYTES, parse_subscriptions_file
 from app.models import Channel, Subscription, User
 from app.services import channels
 from app.services.ingest import http_client
@@ -74,7 +75,7 @@ async def import_takeout(
     if len(content) > MAX_FILE_BYTES:
         flash(request, "error.import_too_large", kind="error")
         return _back()
-    rows = parse_subscriptions_csv(content)
+    rows = parse_subscriptions_file(content)
     if not rows.channels:
         flash(request, "error.import_empty", kind="error")
         return _back()
@@ -87,6 +88,19 @@ async def import_takeout(
         invalid=rows.invalid,
     )
     return _back()
+
+
+@router.get("/export.opml")
+def export(user: User = Depends(require_user), db: Session = Depends(get_db)) -> Response:
+    rows = [
+        (channel.youtube_channel_id, channel.title)
+        for _sub, channel in channels.list_subscriptions(db, user)
+    ]
+    return Response(
+        export_opml(rows, title=f"kurator – {user.username}"),
+        media_type="text/x-opml; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="kurator-abos.opml"'},
+    )
 
 
 @router.post("/{subscription_id}/mute")
