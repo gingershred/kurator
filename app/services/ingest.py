@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 import httpx
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
@@ -127,6 +128,10 @@ async def poll_channels(
                     return
             try:
                 result.new_videos += store_feed(db, channel, feed, utcnow())
+                result.ok += 1
+            except IntegrityError:
+                # Stored concurrently by another process (e.g. the web app); not an error.
+                db.rollback()
                 result.ok += 1
             except Exception as exc:
                 log.exception("storing feed of %s failed", channel.youtube_channel_id)

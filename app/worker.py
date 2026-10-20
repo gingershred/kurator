@@ -11,6 +11,7 @@ import logging
 import os
 import signal
 import socket
+import threading
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from types import FrameType
@@ -45,6 +46,10 @@ QUEUE_POLL_SECONDS = 5
 HEARTBEAT_SECONDS = 60
 HOUSEKEEPING_HOURS = 6
 ENRICH_MINUTES = 10
+
+# Feed polling, enrichment and fetch jobs run in different scheduler threads; running them one
+# at a time avoids duplicate inserts and duplicate (quota-costing) API calls.
+FETCH_LOCK = threading.Lock()
 
 
 def register(job_type: str) -> Callable[[JobHandler], JobHandler]:
@@ -100,7 +105,7 @@ class Worker:
             run.detail = {"requeued": requeued, "pruned": pruned, "thumbs_removed": thumbs_removed}
 
     def poll_feeds(self) -> None:
-        with jobs.track_run(self.session_factory, "poll_feeds") as run:
+        with FETCH_LOCK, jobs.track_run(self.session_factory, "poll_feeds") as run:
             polled, enriched, thumbs = asyncio.run(
                 ingest.poll_and_enrich(self.session_factory, self.settings)
             )
@@ -120,7 +125,8 @@ class Worker:
                 api = YouTubeApi(self.settings, self.session_factory, client)
                 return await ingest.enrich_pending(self.session_factory, api, self.settings)
 
-        result = asyncio.run(run_enrich())
+        with FETCH_LOCK:
+            result = asyncio.run(run_enrich())
         if result.requested:
             with jobs.track_run(self.session_factory, "enrich") as run:
                 run.detail = asdict(result)
@@ -200,8 +206,9 @@ class Worker:
 def fetch_channel(ctx: JobContext, payload: dict[str, Any]) -> None:
     """Fetch one channel right away (e.g. after it was added)."""
     channel_ids = [int(cid) for cid in payload.get("channel_ids", [])]
-    polled, _enriched, _thumbs = asyncio.run(
-        ingest.poll_and_enrich(ctx.session_factory, ctx.settings, channel_ids)
-    )
+    with FETCH_LOCK:
+        polled, _enriched, _thumbs = asyncio.run(
+            ingest.poll_and_enrich(ctx.session_factory, ctx.settings, channel_ids)
+        )
     if polled.failed and not polled.ok:
         raise RuntimeError(f"fetching {polled.failed} channel(s) failed")

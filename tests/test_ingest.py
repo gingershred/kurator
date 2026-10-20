@@ -265,3 +265,23 @@ async def test_simulated_day_with_100_channels_stays_far_below_1000_units(
     assert used < 1000
     assert used <= 48 * 2  # at most a couple of videos.list calls per poll
     assert db.query(Channel).filter(Channel.error_count > 0).count() == 0
+
+
+@respx.mock
+async def test_concurrent_duplicate_insert_is_not_a_channel_error(
+    db: Session, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    channel = add_channel(db, 1)
+    feeds = {channel_id(1): feed_xml(channel_id(1), [(video_id(1), "Eins", BASE_TIME)])}
+    respx.get(FEED_URL).mock(side_effect=rss_router(feeds))
+
+    def racing_store(*_args: object) -> int:
+        from sqlalchemy.exc import IntegrityError
+
+        raise IntegrityError("INSERT", {}, Exception("UNIQUE constraint failed"))
+
+    monkeypatch.setattr(ingest, "store_feed", racing_store)
+    async with httpx.AsyncClient() as client:
+        result = await ingest.poll_channels(session_factory, client, [channel.id])
+    db.refresh(channel)
+    assert (result.ok, result.failed) == (1, 0) and channel.error_count == 0
