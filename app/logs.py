@@ -6,7 +6,13 @@ import logging
 
 from app.config import Settings
 
-QUIET_LOGGERS = ("alembic.runtime.plugins", "apscheduler.scheduler", "apscheduler.executors")
+QUIET_LOGGERS = (
+    "alembic.runtime.plugins",
+    "apscheduler.scheduler",
+    "apscheduler.executors",
+    "httpx",  # logs every request URL at INFO
+    "httpcore",
+)
 
 
 def configure_logging(settings: Settings) -> None:
