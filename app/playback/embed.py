@@ -23,7 +23,12 @@ PLAYER_CSP = (
 
 class PlaybackMode(StrEnum):
     EMBED = "embed"
-    DOWNLOAD = "download"  # phase 2
+    LOCAL = "local"  # downloaded video file
+    AUDIO = "audio"  # downloaded audio-only file
+
+
+# Values of the per-user setting "playback_mode".
+PREFERENCES = ("embed", "download")
 
 
 @dataclass(frozen=True)
@@ -42,7 +47,27 @@ def start_position(video: Video, state: UserVideoState | None) -> int:
     return state.progress_seconds
 
 
-def playback_for(video: Video, state: UserVideoState | None, preferred: str) -> Playback:
-    # Only embedded playback exists so far; a "download" preference falls back to it.
-    del preferred
-    return Playback(PlaybackMode.EMBED, video.youtube_video_id, start_position(video, state))
+def choose_mode(
+    requested: str | None, preferred: str, local_available: bool, audio_available: bool
+) -> PlaybackMode:
+    """Explicit choice first, then the user's preference; embedded playback is always the
+    fallback when no downloaded file is available."""
+    available = {
+        PlaybackMode.EMBED: True,
+        PlaybackMode.LOCAL: local_available,
+        PlaybackMode.AUDIO: audio_available,
+    }
+    if requested in available and available[PlaybackMode(requested)]:
+        return PlaybackMode(requested)
+    if preferred == "download":
+        if local_available:
+            return PlaybackMode.LOCAL
+        if audio_available:
+            return PlaybackMode.AUDIO
+    return PlaybackMode.EMBED
+
+
+def playback_for(
+    video: Video, state: UserVideoState | None, mode: PlaybackMode = PlaybackMode.EMBED
+) -> Playback:
+    return Playback(mode, video.youtube_video_id, start_position(video, state))

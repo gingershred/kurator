@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.feed.query import FeedFilters, FeedItem, Length, View, feed_page
 from app.models import Channel, Subscription, User, Video
+from app.playback import downloads
 from app.services import channels, filters, video_state
 from app.web.deps import get_db, get_settings_dep, require_user
 from app.web.routes.auth import safe_next
@@ -66,6 +67,11 @@ def _show(request: Request, view: View, user: User, db: Session, settings: Setti
         "subscriptions": channels.list_subscriptions(db, user),
         "channel_titles": filters.channel_titles(db, user),
         "api_available": settings.youtube_api_key is not None,
+        "download_badges": (
+            downloads.badges(db, user, [item.video.id for item in page.items])
+            if downloads.user_allowed(db, settings, user)
+            else {}
+        ),
     }
     if cursor and request.headers.get("HX-Request"):
         return render(request, "feed/_page.html", context)

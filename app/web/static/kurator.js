@@ -1,4 +1,4 @@
-// kurator – the little JavaScript there is: embedded player bridge and keyboard shortcuts.
+// kurator – the little JavaScript there is: player bridges and keyboard shortcuts.
 (function () {
   "use strict";
 
@@ -10,61 +10,77 @@
     }
   }
 
-  // --- Embedded player (youtube-nocookie.com via the IFrame API) ---------------------------
-  var el = document.getElementById("player");
-  if (el) {
-    var videoId = el.dataset.video;
-    var start = parseInt(el.dataset.start || "0", 10);
-    var player = null;
-    var timer = null;
-    var PROGRESS_MS = 15000;
+  // --- Progress reporting (shared by the embedded and the local player) --------------------
+  var PROGRESS_MS = 15000;
 
+  var reporter = function (videoId, position) {
+    var timer = null;
     var send = function (event) {
-      if (!player || typeof player.getCurrentTime !== "function") return;
-      var body = JSON.stringify({ event: event, position: Math.floor(player.getCurrentTime() || 0) });
+      var pos = position();
+      if (pos === null) return;
       fetch("/videos/" + encodeURIComponent(videoId) + "/events", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
-        body: body,
+        body: JSON.stringify({ event: event, position: Math.floor(pos) }),
         keepalive: true,
         credentials: "same-origin",
       }).catch(function () {});
     };
-
-    var stopTimer = function () {
+    var stop = function () {
       if (timer) { clearInterval(timer); timer = null; }
-    };
-
-    window.onYouTubeIframeAPIReady = function () {
-      player = new window.YT.Player("player", {
-        host: el.dataset.host,
-        videoId: videoId,
-        playerVars: { start: start, rel: 0, playsinline: 1, autoplay: 1 },
-        events: {
-          onStateChange: function (e) {
-            var S = window.YT.PlayerState;
-            if (e.data === S.PLAYING) {
-              send("play");
-              stopTimer();
-              timer = setInterval(function () { send("progress"); }, PROGRESS_MS);
-            } else if (e.data === S.PAUSED) {
-              stopTimer();
-              send("pause");
-            } else if (e.data === S.ENDED) {
-              stopTimer();
-              send("ended");
-            }
-          },
-        },
-      });
     };
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden" && timer) send("progress");
     });
+    return {
+      play: function () {
+        send("play");
+        stop();
+        timer = setInterval(function () { send("progress"); }, PROGRESS_MS);
+      },
+      pause: function () { stop(); send("pause"); },
+      ended: function () { stop(); send("ended"); },
+    };
+  };
 
+  // --- Embedded player (youtube-nocookie.com via the IFrame API) ---------------------------
+  var el = document.getElementById("player");
+  if (el) {
+    var player = null;
+    var embedded = reporter(el.dataset.video, function () {
+      return player && typeof player.getCurrentTime === "function" ? player.getCurrentTime() || 0 : null;
+    });
+    window.onYouTubeIframeAPIReady = function () {
+      player = new window.YT.Player("player", {
+        host: el.dataset.host,
+        videoId: el.dataset.video,
+        playerVars: { start: parseInt(el.dataset.start || "0", 10), rel: 0, playsinline: 1, autoplay: 1 },
+        events: {
+          onStateChange: function (e) {
+            var S = window.YT.PlayerState;
+            if (e.data === S.PLAYING) embedded.play();
+            else if (e.data === S.PAUSED) embedded.pause();
+            else if (e.data === S.ENDED) embedded.ended();
+          },
+        },
+      });
+    };
     var tag = document.createElement("script");
     tag.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(tag);
+  }
+
+  // --- Local player (downloaded file in <video>/<audio>) -----------------------------------
+  var media = document.getElementById("local-player");
+  if (media) {
+    var start = parseInt(media.dataset.start || "0", 10);
+    var local = reporter(media.dataset.video, function () { return media.currentTime || 0; });
+    media.addEventListener("loadedmetadata", function () {
+      if (start > 0 && start < media.duration) media.currentTime = start;
+    }, { once: true });
+    media.addEventListener("play", local.play);
+    media.addEventListener("pause", function () { if (!media.ended) local.pause(); });
+    media.addEventListener("ended", local.ended);
   }
 
   // --- Keyboard shortcuts -------------------------------------------------------------------

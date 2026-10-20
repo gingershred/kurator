@@ -4,10 +4,13 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
+from app.config import Settings
 from app.models import FilterRule, FilterRuleType, User
+from app.playback import downloads
+from app.playback.embed import PREFERENCES
 from app.services import filters
 from app.services import settings as user_settings
-from app.web.deps import get_db, require_user
+from app.web.deps import get_db, get_settings_dep, require_user
 from app.web.labels import rule_label
 from app.web.templating import flash, render
 
@@ -29,7 +32,10 @@ def _own_rule(db: Session, user: User, rule_id: int) -> FilterRule:
 
 @router.get("")
 def settings_page(
-    request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
 ) -> Response:
     titles = filters.channel_titles(db, user)
     rules = [
@@ -41,17 +47,25 @@ def settings_page(
         "rules": rules,
         "rule_types": [t.value for t in FilterRuleType],
         "channels": titles,
+        "downloads_allowed": downloads.user_allowed(db, settings, user),
+        "playback_modes": PREFERENCES,
     }
     return render(request, "settings/index.html", context)
 
 
 @router.post("")
 async def save_settings(
-    request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
 ) -> Response:
     form = await request.form()
     for key in TOGGLES:
         user_settings.set_user_setting(db, user.id, key, form.get(key) == "on")
+    mode = form.get("playback_mode")
+    if isinstance(mode, str) and mode in PREFERENCES and downloads.user_allowed(db, settings, user):
+        user_settings.set_user_setting(db, user.id, "playback_mode", mode)
     flash(request, "settings.saved")
     return _back()
 

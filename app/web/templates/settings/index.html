@@ -10,6 +10,15 @@
     {% for key in toggles %}
     <label class="check"><input type="checkbox" name="{{ key }}" {% if values[key] %}checked{% endif %}> {{ t("settings." ~ key) }}</label>
     {% endfor %}
+    {% if downloads_allowed %}
+    <label class="form-narrow">{{ t("settings.playback_mode") }}
+      <select name="playback_mode">
+        {% for mode in playback_modes %}
+        <option value="{{ mode }}" {% if values.playback_mode == mode %}selected{% endif %}>{{ t("settings.playback_" ~ mode) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
     <div><button type="submit">{{ t("common.save") }}</button></div>
   </form>
 </section>

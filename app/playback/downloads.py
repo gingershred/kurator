@@ -309,3 +309,20 @@ def cleanup(db: Session, settings: Settings, now: datetime | None = None) -> Cle
             download.deleted_at = now
     db.commit()
     return result
+
+
+def badges(db: Session, user: User, video_ids: list[int]) -> dict[int, Download]:
+    """The user's own requested downloads (preferring video over audio) for a page of videos."""
+    if not video_ids:
+        return {}
+    rows = db.scalars(
+        select(Download)
+        .join(DownloadRequest, DownloadRequest.download_id == Download.id)
+        .where(
+            DownloadRequest.user_id == user.id,
+            Download.video_id.in_(video_ids),
+            Download.status.in_(ACTIVE),
+        )
+        .order_by(Download.kind.desc())  # "video" after "audio", so video wins below
+    )
+    return {download.video_id: download for download in rows}

@@ -12,7 +12,10 @@
   </a>
   <div class="meta">
     <a class="title" href="/videos/{{ vid }}">{{ v.title }}</a>
-    <div class="muted small">{{ item.channel.title }} · {{ v.published_at | ago }}</div>
+    <div class="muted small">{{ item.channel.title }} · {{ v.published_at | ago }}
+      {%- set badge = download_badges.get(v.id) if download_badges else none -%}
+      {%- if badge %}<span class="dl-badge">⬇ {% if badge.status == "done" %}{{ t("download.badge_done") }}{% elif badge.status == "running" %}{{ t("download.badge_running", percent=badge.progress) }}{% else %}{{ t("download.badge_queued") }}{% endif %}</span>{% endif %}
+    </div>
     {% if item.reason %}
     <div class="reason small">{{ t("feed.reason") }}: {{ t("reason." ~ item.reason.kind) if item.reason.kind != "rule" else rule_label(item.reason.rule.type, item.reason.rule.value, channel_titles) }}</div>
     {% endif %}
