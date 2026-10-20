@@ -153,10 +153,15 @@ class Worker:
             polled, enriched, thumbs = asyncio.run(
                 ingest.poll_and_enrich(self.session_factory, self.settings)
             )
+            with self.session_factory() as db:
+                auto = downloads.queue_auto_downloads(
+                    db, self.settings, require_enriched=self.settings.youtube_api_key is not None
+                )
             run.detail = {
                 "poll": asdict(polled),
                 "enrich": asdict(enriched),
                 "thumbs": asdict(thumbs),
+                "auto_downloads": auto,
             }
 
     def enrich(self) -> None:

@@ -16,12 +16,15 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.db import utcnow
 from app.models import (
+    Channel,
     Download,
     DownloadKind,
     DownloadRequest,
     DownloadStatus,
     LiveStatus,
     RequestSource,
+    Subscription,
+    SubscriptionStatus,
     User,
     UserVideoState,
     Video,
@@ -326,3 +329,64 @@ def badges(db: Session, user: User, video_ids: list[int]) -> dict[int, Download]
         .order_by(Download.kind.desc())  # "video" after "audio", so video wins below
     )
     return {download.video_id: download for download in rows}
+
+
+# --- Automatic downloads per channel ----------------------------------------------------------
+
+AUTO_PER_RUN = 20
+
+
+def set_auto_download(
+    db: Session, settings: Settings, user: User, subscription: Subscription, on: bool
+) -> None:
+    if on and not user_allowed(db, settings, user):
+        raise DownloadError("error.downloads_not_allowed")
+    if on and subscription.auto_download_since is None:
+        subscription.auto_download_since = utcnow()
+    elif not on:
+        subscription.auto_download_since = None
+    db.commit()
+
+
+def queue_auto_downloads(
+    db: Session, settings: Settings, require_enriched: bool, limit: int = AUTO_PER_RUN
+) -> int:
+    """Request downloads of new videos for subscriptions with auto-download switched on.
+
+    Only videos published after auto-download was enabled, never Shorts, live or upcoming
+    videos; with an API key only after enrichment confirmed the video is long-form.
+    """
+    if not enabled(db, settings):
+        return 0
+    stmt = (
+        select(Subscription, Video, User)
+        .join(Channel, Channel.id == Subscription.channel_id)
+        .join(Video, Video.channel_id == Channel.id)
+        .join(User, User.id == Subscription.user_id)
+        .where(
+            Subscription.auto_download_since.is_not(None),
+            Subscription.status == SubscriptionStatus.ACTIVE.value,
+            User.is_active.is_(True),
+            Video.published_at >= Subscription.auto_download_since,
+            Video.is_short.is_(False),
+            Video.live_status.in_([LiveStatus.NONE.value, LiveStatus.COMPLETED.value]),
+        )
+        .order_by(Video.published_at)
+    )
+    if require_enriched:
+        stmt = stmt.where(Video.enriched_at.is_not(None))
+    queued = 0
+    for _sub, video, user in db.execute(stmt).all():
+        if queued >= limit:
+            break
+        if not user.may_download:
+            continue
+        existing = get_download(db, video, DownloadKind.VIDEO)
+        if existing is not None and requested_by(db, user, existing):
+            continue
+        try:
+            request_download(db, settings, user, video, DownloadKind.VIDEO, RequestSource.AUTO)
+        except DownloadError:
+            continue
+        queued += 1
+    return queued

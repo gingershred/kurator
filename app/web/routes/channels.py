@@ -8,6 +8,7 @@ from app.config import Settings
 from app.importers.opml import export_opml
 from app.importers.takeout import MAX_FILE_BYTES, parse_subscriptions_file
 from app.models import Channel, Subscription, User
+from app.playback import downloads
 from app.services import channels
 from app.services.ingest import http_client
 from app.web.deps import get_db, get_settings_dep, require_user
@@ -33,9 +34,11 @@ def list_channels(
     request: Request,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
 ) -> Response:
     rows = channels.list_subscriptions(db, user)
-    return render(request, "channels/index.html", {"rows": rows})
+    context = {"rows": rows, "downloads_allowed": downloads.user_allowed(db, settings, user)}
+    return render(request, "channels/index.html", context)
 
 
 @router.post("")
@@ -122,6 +125,23 @@ def unmute(
     db: Session = Depends(get_db),
 ) -> Response:
     channels.set_muted(db, _own(db, user, subscription_id), False)
+    return _back()
+
+
+@router.post("/{subscription_id}/auto-download/{state}")
+def auto_download(
+    request: Request,
+    subscription_id: int,
+    state: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> Response:
+    if state not in ("on", "off") or not downloads.user_allowed(db, settings, user):
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    sub = _own(db, user, subscription_id)
+    downloads.set_auto_download(db, settings, user, sub, state == "on")
+    flash(request, f"channels.auto_download_{state}", title=_title(db, sub))
     return _back()
 
 

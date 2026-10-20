@@ -81,6 +81,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "channels.error": "Fehler",
         "channels.error_count": "{count}× fehlgeschlagen",
         "channels.gone": "existiert nicht mehr",
+        "channels.auto": "automatisch",
+        "channels.auto_download_start": "Auto-Download",
+        "channels.auto_download_stop": "Auto-Download aus",
+        "channels.auto_download_hint": (
+            "Neue Videos dieses Kanals automatisch herunterladen (ab jetzt, ohne ältere Videos)"
+        ),
+        "channels.auto_download_on": (
+            "Neue Videos von „{title}“ werden automatisch heruntergeladen."
+        ),
+        "channels.auto_download_off": "Auto-Download für „{title}“ ist aus.",
         "channels.mute": "Stummschalten",
         "channels.unmute": "Aktivieren",
         "channels.remove": "Entfernen",
