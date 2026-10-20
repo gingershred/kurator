@@ -131,3 +131,28 @@ def test_deleting_user_removes_feed_data_but_keeps_shared(db: Session) -> None:
         assert db.scalars(select(model)).all() == [], model
     assert db.scalars(select(Channel)).one().title == "Kanal"
     assert db.scalars(select(Video)).one().youtube_video_id == "abcdefghijk"
+
+
+def test_deleting_user_removes_download_requests_but_keeps_shared_downloads(db: Session) -> None:
+    from app.models import Channel, Download, DownloadRequest, Video
+
+    user = User(username="alice", role="user")
+    channel = Channel(youtube_channel_id="UC" + "a" * 22, title="Kanal")
+    db.add_all([user, channel])
+    db.flush()
+    video = Video(
+        youtube_video_id="abcdefghijk", channel_id=channel.id, published_at=datetime.now(UTC)
+    )
+    db.add(video)
+    db.flush()
+    download = Download(video_id=video.id, kind="video")
+    db.add(download)
+    db.flush()
+    db.add(DownloadRequest(user_id=user.id, download_id=download.id))
+    db.commit()
+    assert not user.can_download and not user.may_download
+
+    db.execute(text('DELETE FROM "user" WHERE id = :id'), {"id": user.id})
+    db.commit()
+    assert db.scalars(select(DownloadRequest)).all() == []
+    assert db.scalars(select(Download)).one().id == download.id

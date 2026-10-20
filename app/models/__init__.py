@@ -5,6 +5,13 @@ shared or log tables use ON DELETE SET NULL.
 """
 
 from app.models.channel import Channel
+from app.models.download import (
+    Download,
+    DownloadKind,
+    DownloadRequest,
+    DownloadStatus,
+    RequestSource,
+)
 from app.models.filter_rule import FilterRule, FilterRuleType
 from app.models.job import Job, JobRun, JobStatus, RunStatus
 from app.models.quota import QuotaLedger
@@ -17,6 +24,10 @@ from app.models.watch_event import WatchEvent, WatchEventType
 
 __all__ = [
     "Channel",
+    "Download",
+    "DownloadKind",
+    "DownloadRequest",
+    "DownloadStatus",
     "FilterRule",
     "FilterRuleType",
     "GlobalSetting",
@@ -25,6 +36,7 @@ __all__ = [
     "JobStatus",
     "LiveStatus",
     "QuotaLedger",
+    "RequestSource",
     "Role",
     "RunStatus",
     "Subscription",

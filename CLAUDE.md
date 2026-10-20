@@ -194,5 +194,5 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check . && uv run mypy app
 uv run python -m app.cli serve      # Web, braucht KURATOR_SECRET_KEY und KURATOR_DATA_DIR
 uv run python -m app.cli worker     # Hintergrund-Worker
-uv run alembic revision --autogenerate -m "<beschreibung>"   # neue Migration, danach von Hand prüfen
+uv run alembic revision --autogenerate -m "<beschreibung>"   # danach von Hand prüfen: Spalten per op.add_column statt batch_alter_table (Batch legt Tabellen neu an und verliert z. B. COLLATE NOCASE)
 ```
