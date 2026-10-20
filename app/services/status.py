@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,7 @@ from app import GIT_SHA, __version__
 from app.config import Settings
 from app.db import utcnow
 from app.migrate import head_revision
-from app.models import JobRun
+from app.models import Channel, JobRun, RunStatus
 from app.services import jobs, users
 from app.services.settings import get_global_setting, worker_heartbeat
 from app.youtube import quota
@@ -38,6 +39,17 @@ class SystemStatus:
     worker_alive: bool
     queue: dict[str, int]
     recent_runs: list[JobRun]
+    last_poll: dict[str, Any] | None = None
+    fallback_used: int = 0
+    fallback_budget: int = 0
+    gone_channels: int = 0
+
+    @property
+    def rss_degraded(self) -> bool:
+        """More than a quarter of the channels failed via RSS in the last run."""
+        if not self.last_poll or not self.last_poll.get("channels"):
+            return False
+        return int(self.last_poll.get("rss_failed", 0)) * 4 > int(self.last_poll["channels"])
 
     @property
     def db_up_to_date(self) -> bool:
@@ -60,6 +72,19 @@ def _db_size(settings: Settings) -> int:
     return total
 
 
+def _last_poll(db: Session) -> dict[str, Any] | None:
+    run = db.scalars(
+        select(JobRun)
+        .where(JobRun.name == "poll_feeds", JobRun.status == RunStatus.SUCCESS.value)
+        .order_by(JobRun.started_at.desc())
+        .limit(1)
+    ).first()
+    if run is None or not run.detail:
+        return None
+    poll = run.detail.get("poll")
+    return poll if isinstance(poll, dict) else None
+
+
 def collect(db: Session, settings: Settings, now: datetime | None = None) -> SystemStatus:
     now = now or utcnow()
     heartbeat = worker_heartbeat(db)
@@ -79,4 +104,11 @@ def collect(db: Session, settings: Settings, now: datetime | None = None) -> Sys
         worker_alive=heartbeat is not None and now - heartbeat <= WORKER_ALIVE_WITHIN,
         queue=jobs.queue_counts(db),
         recent_runs=jobs.recent_runs(db, limit=20),
+        last_poll=_last_poll(db),
+        fallback_used=quota.used(db, quota.quota_day(now), quota.FALLBACK_METHOD),
+        fallback_budget=quota.fallback_budget(db, settings),
+        gone_channels=db.scalar(
+            select(func.count()).select_from(Channel).where(Channel.gone_at.is_not(None))
+        )
+        or 0,
     )

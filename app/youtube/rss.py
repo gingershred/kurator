@@ -5,6 +5,7 @@ RSS costs no API quota and is the primary source. It returns the ~15 newest vide
 
 from __future__ import annotations
 
+import asyncio
 import calendar
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -19,10 +20,16 @@ from app.youtube.ids import is_channel_id, is_video_id, uploads_playlist_id
 FEED_URL = "https://www.youtube.com/feeds/videos.xml"
 USER_AGENT = f"kurator/{__version__} (+https://github.com/gingershred/kurator)"
 DEFAULT_TIMEOUT = 15.0
+RETRY_DELAY = 2.0
 
 
 class FeedError(Exception):
-    """The feed could not be fetched or parsed."""
+    """The feed could not be fetched or parsed. `not_found` marks an HTTP 404."""
+
+    def __init__(self, message: str, *, not_found: bool = False, transient: bool = False) -> None:
+        super().__init__(message)
+        self.not_found = not_found
+        self.transient = transient
 
 
 @dataclass(frozen=True)
@@ -79,19 +86,37 @@ def parse_feed(content: bytes) -> ChannelFeed:
     )
 
 
-async def fetch_uploads(
-    client: httpx.AsyncClient, channel_id: str, timeout: float = DEFAULT_TIMEOUT
-) -> ChannelFeed:
-    """Fetch the long-form uploads (UULF playlist) of a channel."""
+async def _fetch_once(client: httpx.AsyncClient, channel_id: str, timeout: float) -> ChannelFeed:
     params = {"playlist_id": uploads_playlist_id(channel_id)}
     try:
         response = await client.get(
             FEED_URL, params=params, timeout=timeout, headers={"User-Agent": USER_AGENT}
         )
     except httpx.HTTPError as exc:
-        raise FeedError(f"{type(exc).__name__}: {exc}") from exc
+        raise FeedError(f"{type(exc).__name__}: {exc}", transient=True) from exc
     if response.status_code == 404:
-        raise FeedError("feed not found (channel deleted or without long-form videos)")
+        raise FeedError(
+            "feed not found (channel deleted or without long-form videos)", not_found=True
+        )
     if response.status_code != 200:
-        raise FeedError(f"HTTP {response.status_code}")
+        raise FeedError(f"HTTP {response.status_code}", transient=response.status_code >= 500)
     return parse_feed(response.content)
+
+
+async def fetch_uploads(
+    client: httpx.AsyncClient,
+    channel_id: str,
+    timeout: float = DEFAULT_TIMEOUT,
+    retry_delay: float | None = None,
+) -> ChannelFeed:
+    """Fetch the long-form uploads (UULF playlist) of a channel.
+
+    Timeouts, connection errors and 5xx answers are retried once after a short pause.
+    """
+    try:
+        return await _fetch_once(client, channel_id, timeout)
+    except FeedError as exc:
+        if not exc.transient:
+            raise
+    await asyncio.sleep(RETRY_DELAY if retry_delay is None else retry_delay)
+    return await _fetch_once(client, channel_id, timeout)

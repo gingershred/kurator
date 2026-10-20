@@ -18,6 +18,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
 from app.youtube import quota
+from app.youtube.ids import is_channel_id, is_video_id
+from app.youtube.rss import FeedEntry
 
 API_BASE = "https://www.googleapis.com/youtube/v3"
 DEFAULT_TIMEOUT = 15.0
@@ -41,6 +43,10 @@ class ApiError(Exception):
         super().__init__(f"YouTube API error {status}: {reason}")
         self.status = status
         self.reason = reason
+
+
+class PlaylistNotFound(ApiError):
+    """The playlist does not exist (e.g. the channel was deleted)."""
 
 
 @dataclass(frozen=True)
@@ -117,6 +123,25 @@ def _video_info(item: dict[str, Any]) -> VideoInfo:
     )
 
 
+def _playlist_entry(item: dict[str, Any]) -> FeedEntry | None:
+    snippet = item.get("snippet", {})
+    details = item.get("contentDetails", {})
+    video_id = details.get("videoId") or snippet.get("resourceId", {}).get("videoId", "")
+    channel_id = snippet.get("videoOwnerChannelId") or snippet.get("channelId", "")
+    # Private or deleted entries have no publication date of the video itself.
+    published = _parse_datetime(details.get("videoPublishedAt"))
+    if not is_video_id(video_id) or not is_channel_id(channel_id) or published is None:
+        return None
+    return FeedEntry(
+        video_id=video_id,
+        channel_id=channel_id,
+        title=snippet.get("title", ""),
+        description=snippet.get("description", ""),
+        published_at=published,
+        thumbnail_url=_best_thumbnail(snippet.get("thumbnails", {})),
+    )
+
+
 class YouTubeApi:
     def __init__(
         self,
@@ -157,6 +182,10 @@ class YouTubeApi:
             reason = _error_reason(response)
             if reason in ("quotaExceeded", "dailyLimitExceeded"):
                 raise QuotaExhausted
+            if reason == "playlistNotFound" or (
+                endpoint == "playlistItems" and response.status_code == 404
+            ):
+                raise PlaylistNotFound(response.status_code, reason)
             raise ApiError(response.status_code, reason)
         data: dict[str, Any] = response.json()
         return data
@@ -187,6 +216,20 @@ class YouTubeApi:
         if len(channel_ids) > MAX_IDS_PER_CALL:
             raise ValueError("at most 50 channel ids per call")
         return await self._channels({"id": ",".join(channel_ids)}, user_id)
+
+    async def playlist_items(self, playlist_id: str, max_results: int = 15) -> list[FeedEntry]:
+        """Newest entries of a playlist (1 unit). Used as RSS fallback for UULF playlists."""
+        data = await self._call(
+            "playlistItems.list",
+            "playlistItems",
+            {
+                "part": "snippet,contentDetails",
+                "playlistId": playlist_id,
+                "maxResults": str(max_results),
+            },
+        )
+        entries = (_playlist_entry(item) for item in data.get("items", []))
+        return [entry for entry in entries if entry is not None]
 
     async def videos(self, video_ids: list[str]) -> list[VideoInfo]:
         """Details for up to 50 videos in one call (1 unit). Unknown IDs are omitted."""

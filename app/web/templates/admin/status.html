@@ -25,6 +25,19 @@
     <dt>{{ t("admin.status.quota") }}</dt>
     <dd>{{ t("admin.status.quota_value", used=status.quota_used, budget=status.quota_budget, search=status.quota_search_used) }}</dd>
 
+    <dt>{{ t("admin.status.rss") }}</dt>
+    <dd>
+      {% if status.last_poll %}
+      {{ t("admin.status.rss_value", ok=status.last_poll.ok, channels=status.last_poll.channels, fallback=status.last_poll.fallback, failed=status.last_poll.failed) }}
+      {% if status.rss_degraded %}<br><span class="badge badge-failed">{{ t("admin.status.rss_degraded") }}</span>
+      {% if not status.youtube_api_key_set %} {{ t("admin.status.rss_degraded_no_key") }}{% endif %}{% endif %}
+      {% else %}{{ t("common.none") }}{% endif %}
+      {% if status.gone_channels %}<br>{{ t("admin.status.gone_channels", count=status.gone_channels) }}{% endif %}
+    </dd>
+
+    <dt>{{ t("admin.status.fallback") }}</dt>
+    <dd>{{ t("admin.status.fallback_value", used=status.fallback_used, budget=status.fallback_budget) }}</dd>
+
     <dt>{{ t("admin.status.worker") }}</dt>
     <dd>
       {% if status.worker_heartbeat is none %}<span class="badge badge-failed">{{ t("admin.status.worker_unknown") }}</span>

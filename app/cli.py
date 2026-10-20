@@ -109,7 +109,7 @@ def cmd_reset_password(settings: Settings, args: argparse.Namespace) -> int:
 def cmd_import_takeout(settings: Settings, args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from app.importers.takeout import parse_subscriptions_csv
+    from app.importers.takeout import parse_subscriptions_file
     from app.services.channels import import_channels
 
     _prepare(settings)
@@ -117,7 +117,7 @@ def cmd_import_takeout(settings: Settings, args: argparse.Namespace) -> int:
     if not path.is_file():
         print(f"Datei {path} nicht gefunden.", file=sys.stderr)
         return 1
-    rows = parse_subscriptions_csv(path.read_bytes())
+    rows = parse_subscriptions_file(path.read_bytes())
     engine = create_db_engine(settings.database_url)
     try:
         with create_session_factory(engine)() as db:
@@ -229,9 +229,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--password-stdin", action="store_true", help="Passwort von stdin lesen")
     p.set_defaults(func=cmd_create_user)
 
-    p = sub.add_parser("import-takeout", help="Abos aus Google Takeout importieren")
+    p = sub.add_parser(
+        "import-takeout",
+        aliases=["import-opml"],
+        help="Abos aus Google Takeout (CSV) oder einer OPML-Datei importieren",
+    )
     p.add_argument("username")
-    p.add_argument("file", help="Pfad zur subscriptions.csv")
+    p.add_argument("file", help="Pfad zur subscriptions.csv oder .opml-Datei")
     p.set_defaults(func=cmd_import_takeout)
 
     p = sub.add_parser("reset-password", help="Passwort eines Nutzers neu setzen")

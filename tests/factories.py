@@ -106,3 +106,18 @@ def add_video(
     db.add(video)
     db.commit()
     return video
+
+
+def api_playlist_item(
+    vid: str, cid: str, published: str = "2026-10-01T10:00:00Z"
+) -> dict[str, Any]:
+    return {
+        "snippet": {
+            "title": f"API {vid}",
+            "description": "aus der API",
+            "videoOwnerChannelId": cid,
+            "resourceId": {"videoId": vid},
+            "thumbnails": {"high": {"url": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"}},
+        },
+        "contentDetails": {"videoId": vid, "videoPublishedAt": published},
+    }

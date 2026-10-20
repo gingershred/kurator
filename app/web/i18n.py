@@ -58,10 +58,12 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Ohne YouTube-API-Schlüssel funktionieren nur Kanal-IDs (UC…), Links mit /channel/ "
             "und der Takeout-Import. @Handles brauchen den Schlüssel."
         ),
-        "channels.import": "Aus Google Takeout importieren",
+        "channels.import": "Importieren (Google Takeout oder OPML)",
+        "channels.export": "Als OPML exportieren",
         "channels.import_hint": (
             "Unter takeout.google.com „YouTube und YouTube Music“ → „Abos“ exportieren und die "
-            "Datei subscriptions.csv hier hochladen."
+            "Datei subscriptions.csv hier hochladen. OPML-Dateien aus RSS-Readern oder anderen "
+            "YouTube-Feed-Tools funktionieren ebenfalls."
         ),
         "channels.import_button": "Importieren",
         "channels.imported": (
@@ -78,6 +80,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "channels.last_fetch": "Zuletzt abgerufen",
         "channels.error": "Fehler",
         "channels.error_count": "{count}× fehlgeschlagen",
+        "channels.gone": "existiert nicht mehr",
         "channels.mute": "Stummschalten",
         "channels.unmute": "Aktivieren",
         "channels.remove": "Entfernen",
@@ -242,6 +245,19 @@ MESSAGES: dict[str, dict[str, str]] = {
         "admin.status.api_key_missing": "nicht gesetzt – nur RSS-Daten",
         "admin.status.quota": "Quota heute",
         "admin.status.quota_value": "{used} von {budget} Einheiten (davon Suche: {search})",
+        "admin.status.rss": "Feed-Abruf (letzter Lauf)",
+        "admin.status.rss_value": (
+            "{ok} von {channels} Kanälen ok, davon {fallback} per API nachgeladen; "
+            "{failed} fehlgeschlagen"
+        ),
+        "admin.status.rss_degraded": "RSS gestört",
+        "admin.status.rss_degraded_no_key": (
+            "Mit einem YouTube-API-Schlüssel lädt kurator betroffene Kanäle über die "
+            "offizielle API nach."
+        ),
+        "admin.status.gone_channels": "{count} Kanal/Kanäle existieren nicht mehr",
+        "admin.status.fallback": "API-Ersatzabruf heute",
+        "admin.status.fallback_value": "{used} von höchstens {budget} Einheiten",
         "admin.status.worker": "Worker",
         "admin.status.worker_alive": "aktiv (letztes Lebenszeichen {when})",
         "admin.status.worker_dead": "kein Lebenszeichen seit {when}",

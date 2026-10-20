@@ -20,12 +20,15 @@
   <p class="muted">{{ t("channels.import_hint") }}</p>
   <form method="post" action="/channels/import" enctype="multipart/form-data" class="row">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="file" name="file" accept=".csv,text/csv" required aria-label="{{ t('channels.import') }}">
+    <input type="file" name="file" accept=".csv,.opml,.xml,text/csv,text/x-opml" required aria-label="{{ t('channels.import') }}">
     <button type="submit">{{ t("channels.import_button") }}</button>
   </form>
 </section>
 
-<h2>{{ t("channels.list", count=rows | length) }}</h2>
+<div class="feed-head">
+  <h2>{{ t("channels.list", count=rows | length) }}</h2>
+  {% if rows %}<a class="button secondary" href="/channels/export.opml">{{ t("channels.export") }}</a>{% endif %}
+</div>
 {% if rows %}
 <div class="table-wrap card">
   <table>
@@ -47,7 +50,10 @@
         </td>
         <td>{{ t("channels.status_" ~ sub.status) }}</td>
         <td>{{ channel.last_success_at | dt(tz) }}</td>
-        <td>{% if channel.last_error %}<span class="badge badge-failed" title="{{ channel.last_error }}">{{ t("channels.error_count", count=channel.error_count) }}</span>{% endif %}</td>
+        <td>
+          {% if channel.gone_at %}<span class="badge badge-failed" title="{{ channel.last_error }}">{{ t("channels.gone") }}</span>
+          {% elif channel.last_error %}<span class="badge badge-failed" title="{{ channel.last_error }}">{{ t("channels.error_count", count=channel.error_count) }}</span>{% endif %}
+        </td>
         <td class="actions">
           {% if sub.status == "active" %}
           <form method="post" action="/channels/{{ sub.id }}/mute" class="inline">
