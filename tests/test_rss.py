@@ -47,17 +47,39 @@ async def test_fetch_uses_uulf_playlist() -> None:
 
 
 @respx.mock
-@pytest.mark.parametrize("status", [404, 500])
-async def test_fetch_http_errors(status: int) -> None:
-    respx.get(FEED_URL).respond(status_code=status)
+async def test_404_is_not_retried_and_marked_not_found() -> None:
+    route = respx.get(FEED_URL).respond(status_code=404)
     async with httpx.AsyncClient() as client:
-        with pytest.raises(FeedError):
-            await fetch_uploads(client, CID)
+        with pytest.raises(FeedError) as exc:
+            await fetch_uploads(client, CID, retry_delay=0)
+    assert exc.value.not_found and route.call_count == 1
 
 
 @respx.mock
-async def test_fetch_network_error() -> None:
-    respx.get(FEED_URL).mock(side_effect=httpx.ConnectTimeout("timeout"))
+async def test_transient_error_is_retried_once() -> None:
+    route = respx.get(FEED_URL)
+    route.side_effect = [
+        httpx.Response(500),
+        httpx.Response(200, content=FIXTURE.read_bytes()),
+    ]
     async with httpx.AsyncClient() as client:
-        with pytest.raises(FeedError, match="ConnectTimeout"):
-            await fetch_uploads(client, CID)
+        feed = await fetch_uploads(client, CID, retry_delay=0)
+    assert route.call_count == 2 and len(feed.entries) == 2
+
+
+@respx.mock
+async def test_persistent_errors_fail_after_one_retry() -> None:
+    route = respx.get(FEED_URL).mock(side_effect=httpx.ConnectTimeout("timeout"))
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(FeedError, match="ConnectTimeout") as exc:
+            await fetch_uploads(client, CID, retry_delay=0)
+    assert route.call_count == 2 and exc.value.transient and not exc.value.not_found
+
+
+@respx.mock
+async def test_4xx_other_than_404_is_not_retried() -> None:
+    route = respx.get(FEED_URL).respond(status_code=403)
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(FeedError, match="HTTP 403"):
+            await fetch_uploads(client, CID, retry_delay=0)
+    assert route.call_count == 1
