@@ -180,11 +180,19 @@ docker-compose.yml
 ## Nützliche Befehle (anlegen und hier aktuell halten)
 
 ```bash
+# Betrieb (Docker)
 docker compose up -d --build
 docker compose exec web python -m app.cli create-user <name> [--admin]
 docker compose exec web python -m app.cli reset-password <name>
-docker compose exec web python -m app.cli import-takeout <name> /data/import/subscriptions.csv
-docker compose exec web alembic upgrade head
-pytest
-ruff check . && ruff format --check . && mypy app
+docker compose exec web python -m app.cli backup          # DB-Sicherung nach /data/backups
+docker compose exec web python -m app.cli migrate         # Backup + alembic upgrade head (läuft auch automatisch beim Start)
+docker compose exec web python -m app.cli import-takeout <name> /data/import/subscriptions.csv   # ab Phase 1
+
+# Entwicklung (uv)
+uv sync
+uv run pytest
+uv run ruff check . && uv run ruff format --check . && uv run mypy app
+uv run python -m app.cli serve      # Web, braucht KURATOR_SECRET_KEY und KURATOR_DATA_DIR
+uv run python -m app.cli worker     # Hintergrund-Worker
+uv run alembic revision --autogenerate -m "<beschreibung>"   # neue Migration, danach von Hand prüfen
 ```
