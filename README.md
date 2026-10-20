@@ -11,9 +11,19 @@ works with local LLMs or OpenRouter.
 ## Status
 
 kurator is under active development, see the [roadmap](docs/ROADMAP.md).
-Phase 0 (foundation & multi-user) is done: login (local and optional OIDC), user
-management, admin status page, background worker, automatic migrations with backups, Docker
-image for amd64/arm64. The subscription feed follows in phase 1.
+
+Working today (phases 0 and 1):
+
+- **Subscription feed without Shorts** – channels are read via YouTube's official long-form
+  uploads playlist (RSS, no API quota); with a YouTube API key, durations are added and
+  anything up to 180 s is filtered out as a fallback.
+- Add channels by ID, URL or @handle, or import your Google Takeout `subscriptions.csv`.
+- Feed, "watch later" and "hidden" views; mark as watched, hide, rate; filter by channel and
+  length; keyboard shortcuts (`j`/`k`, `w`, `h`, `l`, `?`).
+- Personal filter rules (keywords, regex, channel, min/max duration) – always undoable.
+- Embedded player via `youtube-nocookie.com` that remembers your progress; thumbnails are
+  cached locally, so your browser never talks to Google while browsing the feed.
+- Multi-user with local login or OIDC, admin user management and status page.
 
 The user interface is German for now; texts are collected centrally for later translation.
 
