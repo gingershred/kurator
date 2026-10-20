@@ -22,6 +22,15 @@ COPY app ./app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
+# yt-dlp must keep up with YouTube: every build (including the weekly uncached rebuild)
+# installs the newest stable release instead of the version pinned in uv.lock.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --python /app/.venv/bin/python --upgrade \
+        --refresh-package yt-dlp --refresh-package yt-dlp-ejs "yt-dlp[default]"
+
+# --- Deno: JavaScript runtime yt-dlp needs for YouTube ---------------------------------------
+FROM denoland/deno:bin AS deno
+
 # --- runtime ------------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
@@ -36,6 +45,12 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     KURATOR_DATA_DIR=/data \
     KURATOR_GIT_SHA=${KURATOR_GIT_SHA}
+
+# ffmpeg merges audio/video and converts subtitles for downloads.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=deno /deno /usr/local/bin/deno
 
 RUN groupadd --gid 1000 kurator \
  && useradd --uid 1000 --gid 1000 --home-dir /app --no-create-home \
