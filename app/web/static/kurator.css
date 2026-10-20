@@ -47,6 +47,7 @@ h2 { font-size: 1.2rem; }
 footer { padding: 1rem; text-align: center; color: var(--muted); font-size: .85rem; }
 footer a { color: var(--muted); }
 
+.card > h2:first-child { margin-top: 0; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
         padding: 1.25rem; margin-bottom: 1.25rem; }
 .narrow { max-width: 26rem; margin-left: auto; margin-right: auto; }

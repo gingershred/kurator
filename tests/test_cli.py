@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 
 import pytest
 from sqlalchemy.orm import Session
@@ -92,3 +93,29 @@ def test_first_admin_from_env(db: Session, settings: Settings) -> None:
     # Never again once users exist.
     assert ensure_first_admin(db, env_settings) is None
     assert users.count_users(db) == 1
+
+
+def test_healthcheck_worker(settings: Settings, db: Session) -> None:
+    from datetime import timedelta
+
+    from app.db import utcnow
+    from app.services.settings import record_worker_heartbeat
+
+    cli.main(["migrate"], settings=settings)
+    assert cli.main(["healthcheck", "--worker"], settings=settings) == 1
+    record_worker_heartbeat(db, utcnow() - timedelta(seconds=30))
+    assert cli.main(["healthcheck", "--worker"], settings=settings) == 0
+
+
+def test_healthcheck_web_unreachable(settings: Settings) -> None:
+    assert cli.main(["healthcheck", "--port", "9"], settings=settings) == 1
+
+
+def test_unwritable_data_dir(
+    settings: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    blocker = tmp_path / "file"
+    blocker.write_text("")
+    bad = settings.model_copy(update={"data_dir": blocker / "data"})
+    assert cli.main(["create-user", "x1", "--password-stdin"], settings=bad) == 2
+    assert "nicht beschreibbar" in capsys.readouterr().err

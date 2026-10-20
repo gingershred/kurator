@@ -8,7 +8,7 @@ import sys
 from collections.abc import Sequence
 
 from app.config import Settings, get_settings
-from app.db import create_db_engine, create_session_factory
+from app.db import create_db_engine, create_session_factory, utcnow
 from app.logs import configure_logging
 from app.models import Role
 from app.services import users
@@ -25,9 +25,29 @@ def _read_password(from_stdin: bool) -> str:
     return first
 
 
+class DataDirError(Exception):
+    pass
+
+
+def _check_data_dir(settings: Settings) -> None:
+    data_dir = settings.data_dir
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        probe = data_dir / ".write-test"
+        probe.write_text("ok")
+        probe.unlink()
+    except OSError as exc:
+        raise DataDirError(
+            f"Das Datenverzeichnis {data_dir} ist nicht beschreibbar ({exc.strerror}). "
+            "Der Container läuft als UID/GID 1000 – siehe docs/INSTALL.md "
+            "(z. B. `sudo chown -R 1000:1000 data`)."
+        ) from exc
+
+
 def _prepare(settings: Settings) -> None:
     from app.migrate import run_migrations
 
+    _check_data_dir(settings)
     run_migrations(settings)
 
 
@@ -111,6 +131,30 @@ def cmd_worker(settings: Settings, _args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_healthcheck(settings: Settings, args: argparse.Namespace) -> int:
+    """Exit 0 if healthy. Web: /healthz answers. Worker: recent heartbeat in the database."""
+    if args.worker:
+        from app.services.settings import worker_heartbeat
+        from app.services.status import WORKER_ALIVE_WITHIN
+
+        engine = create_db_engine(settings.database_url)
+        try:
+            with create_session_factory(engine)() as db:
+                beat = worker_heartbeat(db)
+        finally:
+            engine.dispose()
+        return 0 if beat is not None and utcnow() - beat <= WORKER_ALIVE_WITHIN else 1
+
+    import urllib.request
+
+    url = f"http://127.0.0.1:{args.port}/healthz"
+    try:
+        with urllib.request.urlopen(url, timeout=4) as response:
+            return 0 if response.status == 200 else 1
+    except OSError:
+        return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="kurator CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -122,6 +166,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("worker", help="Hintergrund-Worker starten")
     p.set_defaults(func=cmd_worker)
+
+    p = sub.add_parser("healthcheck", help="Gesundheitsprüfung für Docker")
+    p.add_argument("--worker", action="store_true", help="Worker statt Web prüfen")
+    p.add_argument("--port", type=int, default=8080)
+    p.set_defaults(func=cmd_healthcheck)
 
     p = sub.add_parser("migrate", help="Datenbank sichern und migrieren")
     p.set_defaults(func=cmd_migrate)
@@ -149,6 +198,9 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
     except users.UserError as exc:
         print(translate(exc.key), file=sys.stderr)
         return 1
+    except DataDirError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     return code
 
 
