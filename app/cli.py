@@ -4,24 +4,15 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import logging
 import sys
 from collections.abc import Sequence
 
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
+from app.logs import configure_logging
 from app.models import Role
 from app.services import users
 from app.web.i18n import translate
-
-log = logging.getLogger("kurator.cli")
-
-
-def _configure_logging(settings: Settings) -> None:
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    )
 
 
 def _read_password(from_stdin: bool) -> str:
@@ -106,6 +97,20 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_worker(settings: Settings, _args: argparse.Namespace) -> int:
+    from app.migrate import wait_for_head
+    from app.worker import Worker
+
+    # The web process migrates the database; the worker only waits for it.
+    wait_for_head(settings, timeout=300)
+    engine = create_db_engine(settings.database_url)
+    try:
+        Worker(settings, create_session_factory(engine)).run_forever()
+    finally:
+        engine.dispose()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description="kurator CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -114,6 +119,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--host", default="0.0.0.0")  # noqa: S104  (inside the container)
     p.add_argument("--port", type=int, default=8080)
     p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("worker", help="Hintergrund-Worker starten")
+    p.set_defaults(func=cmd_worker)
 
     p = sub.add_parser("migrate", help="Datenbank sichern und migrieren")
     p.set_defaults(func=cmd_migrate)
@@ -135,7 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None, settings: Settings | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = settings or get_settings()
-    _configure_logging(settings)
+    configure_logging(settings)
     try:
         code: int = args.func(settings, args)
     except users.UserError as exc:

@@ -41,13 +41,6 @@ SECURITY_HEADERS = {
 }
 
 
-def configure_logging(settings: Settings) -> None:
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    )
-
-
 def _wants_html(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "") or request.method == "POST"
 
