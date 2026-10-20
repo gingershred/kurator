@@ -189,6 +189,10 @@ MESSAGES: dict[str, dict[str, str]] = {
             "(neueres yt-dlp) hilft meist"
         ),
         "download.hint_unavailable": "Video ist privat, gelöscht oder nur für Mitglieder",
+        "download.hint_bot_check": (
+            "YouTube verlangt eine Bot-Prüfung – das passiert vor allem bei Servern in "
+            "Rechenzentren oder hinter VPNs; später erneut versuchen"
+        ),
         "download.hint_storage_full": "Speicherlimit erreicht",
         "video.resume": "weiter bei {position}",
         "video.playback": "Wiedergabe",

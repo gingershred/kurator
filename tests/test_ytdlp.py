@@ -7,6 +7,7 @@ from yt_dlp.utils import DownloadError as YtDlpDownloadError
 
 from app.playback import ytdlp
 from app.playback.ytdlp import (
+    HINT_BOT_CHECK,
     HINT_OUTDATED,
     HINT_UNAVAILABLE,
     DownloadFailed,
@@ -119,7 +120,7 @@ def test_run_download_audio(tmp_path: Path) -> None:
             False,
         ),
         ("ERROR: unable to download video data: HTTP Error 403: Forbidden", HINT_OUTDATED, True),
-        ("ERROR: [youtube] x: Sign in to confirm you’re not a bot", HINT_OUTDATED, True),
+        ("ERROR: [youtube] x: Sign in to confirm you’re not a bot", HINT_BOT_CHECK, True),
         ("WARNING: No supported JavaScript runtime could be found", HINT_OUTDATED, True),
         ("ERROR: Requested format is not available", HINT_OUTDATED, True),
         ("ERROR: [Errno 28] No space left on device", None, True),

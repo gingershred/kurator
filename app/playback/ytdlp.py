@@ -23,6 +23,9 @@ ProgressCallback = Callable[[int], None]
 # Error hints shown in the UI.
 HINT_OUTDATED = "outdated"  # YouTube changed something; a newer yt-dlp usually helps
 HINT_UNAVAILABLE = "unavailable"  # private, removed, members-only, age-restricted …
+HINT_BOT_CHECK = "bot_check"  # YouTube asks to sign in; mostly datacenter/VPN IP addresses
+
+_BOT_CHECK_PATTERNS = ("not a bot", "sign in to confirm")
 
 _UNAVAILABLE_PATTERNS = (
     "private video",
@@ -36,7 +39,6 @@ _UNAVAILABLE_PATTERNS = (
 )
 _OUTDATED_PATTERNS = (
     "http error 403",
-    "sign in to confirm",
     "nsig",
     "signature extraction",
     "unable to extract",
@@ -92,6 +94,8 @@ def format_selector(kind: str, max_height: int) -> str:
 def classify_error(message: str) -> tuple[str | None, bool]:
     """(hint, retryable) for a yt-dlp error message."""
     text = message.lower()
+    if any(p in text for p in _BOT_CHECK_PATTERNS):
+        return HINT_BOT_CHECK, True
     if any(p in text for p in _UNAVAILABLE_PATTERNS):
         return HINT_UNAVAILABLE, False
     if any(p in text for p in _OUTDATED_PATTERNS):
