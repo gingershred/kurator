@@ -7,6 +7,8 @@ import getpass
 import sys
 from collections.abc import Sequence
 
+from pydantic import ValidationError
+
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory, utcnow
 from app.logs import configure_logging
@@ -202,9 +204,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _config_error(exc: ValidationError) -> str:
+    # Never echo input values: they may contain secrets.
+    lines = ["Ungültige Konfiguration:"]
+    for error in exc.errors(include_input=False, include_url=False):
+        location = ".".join(str(part) for part in error["loc"]) or "Einstellungen"
+        lines.append(f"  - {location}: {error['msg']}")
+    return "\n".join(lines)
+
+
 def main(argv: Sequence[str] | None = None, settings: Settings | None = None) -> int:
     args = build_parser().parse_args(argv)
-    settings = settings or get_settings()
+    if settings is None:
+        try:
+            settings = get_settings()
+        except ValidationError as exc:
+            print(_config_error(exc), file=sys.stderr)
+            return 2
     configure_logging(settings)
     try:
         code: int = args.func(settings, args)

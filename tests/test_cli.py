@@ -127,3 +127,21 @@ def test_backup_command(settings: Settings, capsys: pytest.CaptureFixture[str]) 
     assert cli.main(["backup"], settings=settings) == 0
     assert "manual" in capsys.readouterr().out
     assert len(list(settings.backups_dir.glob("kurator-*-manual.db"))) == 1
+
+
+def test_invalid_config_does_not_leak_secrets(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.config import get_settings
+
+    monkeypatch.setenv("KURATOR_SECRET_KEY", "tooShortSecret")
+    monkeypatch.setenv("QUOTA_DAILY_BUDGET", "lots")
+    get_settings.cache_clear()
+    try:
+        assert cli.main(["migrate"]) == 2
+    finally:
+        get_settings.cache_clear()
+    err = capsys.readouterr().err
+    assert "Ungültige Konfiguration" in err
+    assert "KURATOR_SECRET_KEY" in err and "QUOTA_DAILY_BUDGET" in err
+    assert "tooShortSecret" not in err
