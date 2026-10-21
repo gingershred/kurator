@@ -48,7 +48,7 @@
           {{ channel.title or channel.youtube_channel_id }}
           {% if channel.handle %}<span class="muted">@{{ channel.handle }}</span>{% endif %}
         </td>
-        <td>{{ t("channels.status_" ~ sub.status) }}</td>
+        <td>{{ t("channels.status_" ~ sub.status) }}{% if downloads_allowed and sub.auto_download_since %} · <span class="dl-badge">⬇ {{ t("channels.auto") }}</span>{% endif %}</td>
         <td>{{ channel.last_success_at | dt(tz) }}</td>
         <td>
           {% if channel.gone_at %}<span class="badge badge-failed" title="{{ channel.last_error }}">{{ t("channels.gone") }}</span>
@@ -64,6 +64,12 @@
           <form method="post" action="/channels/{{ sub.id }}/unmute" class="inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="link">{{ t("channels.unmute") }}</button>
+          </form>
+          {% endif %}
+          {% if downloads_allowed %}
+          <form method="post" action="/channels/{{ sub.id }}/auto-download/{{ 'off' if sub.auto_download_since else 'on' }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link" title="{{ t('channels.auto_download_hint') }}">{{ t("channels.auto_download_stop") if sub.auto_download_since else t("channels.auto_download_start") }}</button>
           </form>
           {% endif %}
           <form method="post" action="/channels/{{ sub.id }}/remove" class="inline">

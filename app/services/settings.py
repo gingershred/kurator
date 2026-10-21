@@ -29,6 +29,12 @@ GLOBAL_KEYS_FROM_ENV = (
     "quota_search_budget",
 )
 
+# Global values without an environment variable, with their defaults.
+GLOBAL_DEFAULTS: dict[str, Any] = {
+    "download_concurrency": 1,
+    "rss_fallback_share": 0.25,
+}
+
 WORKER_HEARTBEAT_KEY = "worker_heartbeat"
 
 
@@ -64,10 +70,12 @@ def set_user_setting(db: Session, user_id: int, key: str, value: Any) -> None:
 
 
 def get_global_setting(db: Session, settings: Settings, key: str) -> Any:
-    if key not in GLOBAL_KEYS_FROM_ENV:
+    if key not in GLOBAL_KEYS_FROM_ENV and key not in GLOBAL_DEFAULTS:
         raise KeyError(f"unknown global setting: {key}")
     row = db.get(GlobalSetting, key)
-    return getattr(settings, key) if row is None else row.value
+    if row is not None:
+        return row.value
+    return getattr(settings, key) if key in GLOBAL_KEYS_FROM_ENV else GLOBAL_DEFAULTS[key]
 
 
 def set_global_setting(db: Session, key: str, value: Any, updated_by: int | None = None) -> None:

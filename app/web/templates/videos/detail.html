@@ -2,9 +2,23 @@
 {% block title %}{{ item.video.title }}{% endblock %}
 {% block content %}
 {%- set v = item.video -%}
+{%- set mode = playback.mode.value -%}
 <div class="watch">
-  <div class="player-wrap">
+  <div class="player-wrap{% if mode == 'audio' %} audio-only{% endif %}">
+    {% if mode == "local" %}
+    <video id="local-player" controls preload="metadata" playsinline autoplay
+           src="/media/{{ local.id }}" data-video="{{ playback.video_id }}" data-start="{{ playback.start_seconds }}">
+      {% for lang in local.subtitles %}
+      <track kind="subtitles" srclang="{{ lang }}" label="{{ t('lang.' ~ lang) if t('lang.' ~ lang) != 'lang.' ~ lang else lang }}" src="/media/{{ local.id }}/subs/{{ lang }}.vtt"{% if loop.first %} default{% endif %}>
+      {% endfor %}
+    </video>
+    {% elif mode == "audio" %}
+    <img class="audio-cover" src="/thumbs/{{ v.youtube_video_id }}.jpg" alt="">
+    <audio id="local-player" controls preload="metadata" autoplay
+           src="/media/{{ audio.id }}" data-video="{{ playback.video_id }}" data-start="{{ playback.start_seconds }}"></audio>
+    {% else %}
     <div id="player" data-video="{{ playback.video_id }}" data-start="{{ playback.start_seconds }}" data-host="https://www.youtube-nocookie.com"></div>
+    {% endif %}
   </div>
   <div class="watch-meta">
     <h1>{{ v.title }}</h1>
@@ -16,6 +30,16 @@
       {% with view="detail" %}{% include "videos/_actions.html" %}{% endwith %}
       <a class="button secondary" href="https://www.youtube.com/watch?v={{ v.youtube_video_id }}" rel="noopener noreferrer" target="_blank">{{ t("video.open_youtube") }}</a>
     </div>
+    {% if downloads_allowed %}
+    <section class="playback-choice">
+      <nav class="segmented" aria-label="{{ t('video.playback') }}">
+        <a href="?play=embed"{% if mode == "embed" %} aria-current="true"{% endif %}>{{ t("video.play_embed") }}</a>
+        {% if local %}<a href="?play=local"{% if mode == "local" %} aria-current="true"{% endif %}>{{ t("video.play_local") }}</a>{% endif %}
+        {% if audio %}<a href="?play=audio"{% if mode == "audio" %} aria-current="true"{% endif %}>{{ t("video.play_audio") }}</a>{% endif %}
+      </nav>
+      {% include "videos/_download.html" %}
+    </section>
+    {% endif %}
     {% if v.description %}
     <details class="description" open>
       <summary>{{ t("video.description") }}</summary>

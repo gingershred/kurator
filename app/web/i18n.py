@@ -81,6 +81,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "channels.error": "Fehler",
         "channels.error_count": "{count}× fehlgeschlagen",
         "channels.gone": "existiert nicht mehr",
+        "channels.auto": "automatisch",
+        "channels.auto_download_start": "Auto-Download",
+        "channels.auto_download_stop": "Auto-Download aus",
+        "channels.auto_download_hint": (
+            "Neue Videos dieses Kanals automatisch herunterladen (ab jetzt, ohne ältere Videos)"
+        ),
+        "channels.auto_download_on": (
+            "Neue Videos von „{title}“ werden automatisch heruntergeladen."
+        ),
+        "channels.auto_download_off": "Auto-Download für „{title}“ ist aus.",
         "channels.mute": "Stummschalten",
         "channels.unmute": "Aktivieren",
         "channels.remove": "Entfernen",
@@ -92,6 +102,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "settings.show_livestreams": "Livestreams anzeigen",
         "settings.show_premieres": "Premieren und angekündigte Livestreams anzeigen",
         "settings.saved": "Einstellungen gespeichert.",
+        "settings.playback_mode": "Standard-Wiedergabe",
+        "settings.playback_embed": "Eingebettet (YouTube-Player)",
+        "settings.playback_download": "Heruntergeladene Datei, falls vorhanden",
         "settings.rules": "Filterregeln",
         "settings.rules_hint": (
             "Videos, auf die eine aktive Regel zutrifft, landen unter „Ausgeblendet“. "
@@ -158,7 +171,36 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason.live": "Livestream",
         "reason.premiere": "Premiere bzw. angekündigter Livestream",
         "reason.rule": "Regel",
+        "download.badge_done": "lokal",
+        "download.badge_running": "lädt {percent} %",
+        "download.badge_queued": "Download wartet",
+        "download.kind_video": "Video",
+        "download.kind_audio": "Nur Audio",
+        "download.start_video": "Herunterladen",
+        "download.start_audio": "Nur Audio herunterladen",
+        "download.queued": "wartet",
+        "download.running": "lädt {percent} %",
+        "download.done": "heruntergeladen",
+        "download.failed": "Fehler",
+        "download.retry": "Erneut versuchen",
+        "download.remove": "Download entfernen",
+        "download.hint_outdated": (
+            "YouTube hat vermutlich etwas geändert; ein aktuelles kurator-Image "
+            "(neueres yt-dlp) hilft meist"
+        ),
+        "download.hint_unavailable": "Video ist privat, gelöscht oder nur für Mitglieder",
+        "download.hint_bot_check": (
+            "YouTube verlangt eine Bot-Prüfung – das passiert vor allem bei Servern in "
+            "Rechenzentren oder hinter VPNs; später erneut versuchen"
+        ),
+        "download.hint_storage_full": "Speicherlimit erreicht",
         "video.resume": "weiter bei {position}",
+        "video.playback": "Wiedergabe",
+        "video.play_embed": "Eingebettet",
+        "video.play_local": "Lokal",
+        "video.play_audio": "Nur Audio",
+        "lang.de": "Deutsch",
+        "lang.en": "Englisch",
         "video.open_youtube": "Auf YouTube öffnen",
         "video.description": "Beschreibung",
         "video.live": "LIVE",
@@ -231,6 +273,38 @@ MESSAGES: dict[str, dict[str, str]] = {
         "admin.users.deleted": "Nutzer „{username}“ wurde gelöscht.",
         "role.admin": "Admin",
         "role.user": "Nutzer",
+        # Admin – downloads
+        "nav.admin_downloads": "Downloads",
+        "admin.downloads.title": "Downloads",
+        "admin.downloads.settings": "Einstellungen",
+        "admin.downloads.enabled": "Downloads aktiviert",
+        "admin.downloads.max_quality": "Maximale Qualität",
+        "admin.downloads.max_storage": "Speicherlimit (GB)",
+        "admin.downloads.retention": "Aufbewahrung nach „gesehen“ (Tage)",
+        "admin.downloads.concurrency": "Gleichzeitige Downloads (1–3)",
+        "admin.downloads.fallback": "Anteil des API-Budgets für den RSS-Ersatzabruf (%)",
+        "admin.downloads.permission_hint": (
+            "Welche Nutzer herunterladen dürfen, legst du in der Nutzerverwaltung fest. "
+            "Admins dürfen immer."
+        ),
+        "admin.downloads.storage": "Speicher & Werkzeuge",
+        "admin.downloads.storage_value": "{used} GB von {limit} GB belegt",
+        "admin.downloads.ytdlp_old": ("{days} Tage alt – bitte das kurator-Image aktualisieren"),
+        "admin.downloads.missing": "fehlt",
+        "admin.downloads.group_running": "Laufend",
+        "admin.downloads.group_queued": "Wartend",
+        "admin.downloads.group_failed": "Fehlgeschlagen",
+        "admin.downloads.group_done": "Heruntergeladen",
+        "admin.downloads.video": "Video",
+        "admin.downloads.kind": "Art",
+        "admin.downloads.info": "Details",
+        "admin.downloads.requesters": "Angefordert von",
+        "admin.downloads.played": "zuletzt abgespielt {when}",
+        "admin.downloads.deleted": "Download gelöscht.",
+        "admin.downloads.retried": "Download wird erneut versucht.",
+        "admin.users.can_download": "Darf herunterladen",
+        "admin.users.can_download_saved": "Download-Freigabe gespeichert.",
+        "error.download_settings_invalid": "Bitte die Werte prüfen.",
         # Admin – status
         "admin.status.title": "Status",
         "admin.status.version": "Version",
@@ -311,6 +385,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "error.import_too_large": "Die Datei ist zu groß (höchstens 2 MB).",
         "error.import_empty": "In der Datei wurden keine Kanäle gefunden.",
+        "error.downloads_not_allowed": "Downloads sind für dich nicht freigeschaltet.",
+        "error.download_not_possible": (
+            "Dieses Video lässt sich (noch) nicht herunterladen, z. B. weil es live oder "
+            "angekündigt ist."
+        ),
         "error.rule_type_invalid": "Unbekannte Regelart.",
         "error.rule_value_empty": "Bitte einen Wert angeben.",
         "error.rule_value_too_long": "Der Wert ist zu lang (höchstens 200 Zeichen).",

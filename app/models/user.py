@@ -28,6 +28,10 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("1")
     )
+    # Downloads must be enabled per user by an admin (admins may always download).
+    can_download: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0")
+    )
     oidc_subject: Mapped[str | None] = mapped_column(String(255), unique=True)
     # Incremented whenever existing sessions must become invalid (password reset, role change,
     # deactivation). The session cookie stores the version it was issued for.
@@ -43,3 +47,7 @@ class User(Base):
     @property
     def is_admin(self) -> bool:
         return self.role == Role.ADMIN.value
+
+    @property
+    def may_download(self) -> bool:
+        return self.is_admin or self.can_download

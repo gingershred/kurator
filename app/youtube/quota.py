@@ -20,9 +20,9 @@ from app.services.settings import get_global_setting
 QUOTA_TIMEZONE = ZoneInfo("America/Los_Angeles")
 SEARCH_METHOD = "search.list"
 FALLBACK_METHOD = "playlistItems.list"
-# At most this share of the daily budget may be spent on fetching uploads via the API
-# when RSS fails, so an RSS outage never starves enrichment.
-FALLBACK_SHARE = 0.25
+# At most this share of the daily budget (admin setting "rss_fallback_share", default 25 %)
+# may be spent on fetching uploads via the API when RSS fails, so an RSS outage never starves
+# enrichment.
 
 # Documented unit costs of the methods kurator uses.
 METHOD_COSTS = {
@@ -92,7 +92,8 @@ def can_spend(
 
 
 def fallback_budget(db: Session, settings: Settings) -> int:
-    return int(int(get_global_setting(db, settings, "quota_daily_budget")) * FALLBACK_SHARE)
+    share = float(get_global_setting(db, settings, "rss_fallback_share"))
+    return int(int(get_global_setting(db, settings, "quota_daily_budget")) * share)
 
 
 def can_spend_fallback(db: Session, settings: Settings, now: datetime | None = None) -> bool:

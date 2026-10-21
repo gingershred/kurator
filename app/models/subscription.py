@@ -42,3 +42,6 @@ class Subscription(Base):
         String(16), nullable=False, default=SubscriptionSource.MANUAL.value
     )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+    # Set while "download new videos automatically" is on; only videos published after
+    # this moment are downloaded (no backlog).
+    auto_download_since: Mapped[datetime | None] = mapped_column(UTCDateTime)

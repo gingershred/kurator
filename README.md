@@ -12,7 +12,7 @@ works with local LLMs or OpenRouter.
 
 kurator is under active development, see the [roadmap](docs/ROADMAP.md).
 
-Working today (phases 0, 1 and 1.1):
+Working today (phases 0 to 2):
 
 - **Subscription feed without Shorts** – channels are read via YouTube's official long-form
   uploads playlist (RSS, no API quota); with a YouTube API key, durations are added and
@@ -26,6 +26,9 @@ Working today (phases 0, 1 and 1.1):
 - Personal filter rules (keywords, regex, channel, min/max duration) – always undoable.
 - Embedded player via `youtube-nocookie.com` that remembers your progress; thumbnails are
   cached locally, so your browser never talks to Google while browsing the feed.
+- Optional downloads (yt-dlp): play videos or audio only from your own server, with seeking,
+  subtitles and resume; shared between users, automatic per channel if you like, cleaned up
+  by retention and storage limit. Enabled by the admin, per user.
 - Multi-user with local login or OIDC, admin user management and status page.
 
 The user interface is German for now; texts are collected centrally for later translation.

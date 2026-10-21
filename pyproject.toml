@@ -19,6 +19,7 @@ dependencies = [
     "httpx>=0.28",
     "apscheduler>=3.11,<4",
     "feedparser>=6.0",
+    "yt-dlp[default]>=2026.1",
 ]
 
 [dependency-groups]
@@ -62,7 +63,7 @@ module = ["tests.*"]
 warn_return_any = false
 
 [[tool.mypy.overrides]]
-module = ["apscheduler.*", "authlib.*", "feedparser.*"]
+module = ["apscheduler.*", "authlib.*", "feedparser.*", "yt_dlp.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

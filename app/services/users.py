@@ -163,3 +163,8 @@ def delete_user(db: Session, actor: User, user: User) -> None:
     _ensure_not_last_admin(db, user)
     db.delete(user)
     db.commit()
+
+
+def set_can_download(db: Session, user: User, allowed: bool) -> None:
+    user.can_download = allowed
+    db.commit()

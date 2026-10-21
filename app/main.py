@@ -22,10 +22,12 @@ from app.db import create_db_engine, create_session_factory
 from app.web.deps import LoginRequired
 from app.web.routes import (
     account,
+    admin_downloads,
     admin_status,
     admin_users,
     auth,
     channels,
+    downloads,
     feed,
     health,
     oidc,
@@ -134,10 +136,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     # Before the feed router: /videos/{id}/events must win over /videos/{id}/{action}.
     app.include_router(videos.router)
+    app.include_router(downloads.router)
     app.include_router(feed.router)
     app.include_router(account.router)
     app.include_router(admin_users.router)
     app.include_router(admin_status.router)
+    app.include_router(admin_downloads.router)
     app.include_router(oidc.router)
     app.include_router(thumbs.router)
     app.include_router(channels.router)
